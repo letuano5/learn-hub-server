@@ -6,11 +6,9 @@ import pdfplumber
 import asyncio
 import json
 from io import BytesIO
-from service import generate
+from api.v1.service import generate
 
-origins = [
-  "*",
-]
+origins = ["*"]
 
 app = FastAPI()
 
@@ -24,7 +22,7 @@ app.add_middleware(
 
 @app.get("/check")
 async def check():
-  return {"Message": "aaaa"}
+  return {"Message": "Live"}
 
 async def extract_text_from_pdf(pdf_data: bytes):
   pdf_file = BytesIO(pdf_data)
@@ -35,7 +33,7 @@ def _sync_extract_text(pdf_file: BytesIO):
   with pdfplumber.open(pdf_file) as pdf:
       return "\n".join([page.extract_text() or "" for page in pdf.pages])
 
-@app.post("/gen")
+@app.post("/generate")
 async def gen(file: UploadFile, count: int, lang: str):
   pdf_data = await file.read()
   text = await extract_text_from_pdf(pdf_data)

@@ -96,6 +96,6 @@ The generated questions and answers must be in ${lang}. However, your response m
     model = "gemini-2.0-flash", contents=current_prompt
   )
 
-  print(current_prompt)
+  # print(current_prompt)
 
   return response.text

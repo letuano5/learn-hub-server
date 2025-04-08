@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pdfplumber
+google-genai
+python-multipart
+PyMuPDF
+pillow
+google-generativeai
+llama-index
