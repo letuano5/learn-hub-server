@@ -265,9 +265,8 @@ class PDFProcessor(DocumentProcessor):
         })
 
     merged = {"questions": questions}
-    merged_json = json.dumps(merged, ensure_ascii=False, indent=2)
 
-    return merged_json
+    return merged
 
 
 generator = QuestionGenerator(api_key=api_key, default_prompt=default_prompt)
