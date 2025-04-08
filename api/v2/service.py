@@ -267,8 +267,8 @@ class PDFProcessor(DocumentProcessor):
     return merged_json
 
 
-generator = QuestionGenerator(api_key='', default_prompt=default_prompt)
-summarizer = Summarizer(api_key='')
+generator = QuestionGenerator(api_key=GOOGLE_GENAI_KEY, default_prompt=default_prompt)
+summarizer = Summarizer(api_key=GOOGLE_GENAI_KEY)
 text_processor = TextProcessor(generator)
 image_processor = ImageProcessor(generator, summarizer, text_processor)
 processor = PDFProcessor(image_processor)
