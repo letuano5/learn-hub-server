@@ -13,6 +13,9 @@ from google.api_core.exceptions import InvalidArgument
 from llama_index.core import Document
 from llama_index.core.node_parser import SentenceSplitter
 
+import os
+api_key = os.environ.get('GOOGLE_GENAI_KEY')
+
 question_example = {
     "questions": [
         {
@@ -267,8 +270,8 @@ class PDFProcessor(DocumentProcessor):
     return merged_json
 
 
-generator = QuestionGenerator(api_key=GOOGLE_GENAI_KEY, default_prompt=default_prompt)
-summarizer = Summarizer(api_key=GOOGLE_GENAI_KEY)
+generator = QuestionGenerator(api_key=api_key, default_prompt=default_prompt)
+summarizer = Summarizer(api_key=api_key)
 text_processor = TextProcessor(generator)
 image_processor = ImageProcessor(generator, summarizer, text_processor)
 processor = PDFProcessor(image_processor)
