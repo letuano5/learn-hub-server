@@ -30,4 +30,4 @@ async def gen(file: UploadFile, count: int, lang: str):
     tmp.write(content)
   json_obj = processor.generate_questions(temp_file_path, count, lang)
   os.remove(temp_file_path)
-  return JSONResponse(content=json_obj)
+  return json_obj
