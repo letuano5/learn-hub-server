@@ -1,7 +1,7 @@
 import json
 from google import genai 
 
-client = genai.Client(api_key="")
+client = genai.Client(api_key=GOOGLE_GENAI_KEY)
 
 def generate(text, num_questions, lang):
   question_example = {
