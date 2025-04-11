@@ -295,9 +295,7 @@ class PDFProcessor(DocumentProcessor):
         })
 
     merged = {"questions": questions}
-    merged_json = json.dumps(merged, ensure_ascii=False, indent=2)
-
-    return merged_json
+    return merged
 
   def generate_questions_by_text(self, pdf_path: str, num_question: int, language: str):
     # Get text from PDF
