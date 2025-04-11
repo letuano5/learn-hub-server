@@ -3,7 +3,6 @@ import io
 
 import fitz
 import json
-
 from PIL import Image
 
 import google.generativeai as genai
@@ -12,6 +11,10 @@ from google.api_core.exceptions import InvalidArgument
 
 from llama_index.core import Document
 from llama_index.core.node_parser import SentenceSplitter
+
+import networkx as nx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 import os
 api_key = os.environ.get('GOOGLE_GENAI_KEY')
@@ -90,7 +93,7 @@ Focus on testing understanding and critical thinking while staying true to the s
 class GenAIClient:
   def __init__(self, api_key: str, default_prompt: str = ''):
     genai.configure(api_key=api_key)
-    
+
     if len(default_prompt) > 0:
       self.model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=default_prompt)
     else:
@@ -144,7 +147,7 @@ Just return the summary without any other text.
 
 # Generate questions with text
 class TextProcessor:
-  def __init__(self, generator: QuestionGenerator, chunk_size: int=1500, chunk_overlap: int=150):
+  def __init__(self, generator: QuestionGenerator, chunk_size: int=10000, chunk_overlap: int=1000):
     if chunk_size <= chunk_overlap:
       raise ValueError('chunk_size must be greater than chunk_overlap')
     self.generator = generator
@@ -176,11 +179,37 @@ class TextProcessor:
       return questions_json
     else:
       # Summarized the main content
-      return
+      # https://chatgpt.com/share/67f5d65f-8e78-8012-a3dd-6257744d95ff
+
+      chunks = [node.text for node in chunks]
+
+      vectorizer = TfidfVectorizer(stop_words='english')
+      tfidf_matrix = vectorizer.fit_transform(chunks)
+
+      sim_matrix = cosine_similarity(tfidf_matrix)
+
+      graph = nx.from_numpy_array(sim_matrix)
+      scores = nx.pagerank_numpy(graph)
+      ranked_chunks = sorted(
+          ((score, chunk) for chunk, score in zip(chunks, scores.values())),
+          key=lambda x: x[0],
+          reverse=True
+      )
+      selected_chunks = [chunk for score, chunk in ranked_chunks[:num_question]]
+
+      print('Done ranking document')
+
+      jsons = []
+
+      for chunk in selected_chunks:
+        prompt = self.generator.get_user_prompt_text(language, 1, chunk)
+        jsons.append(self.generator.generate_from_text(prompt))
+
+      return jsons
 
 # Generate questions with images
 class ImageProcessor:
-  def __init__(self, generator: QuestionGenerator, summarizer: Summarizer, text_processor: TextProcessor, chunk_size: int=5, chunk_overlap: int=2):
+  def __init__(self, generator: QuestionGenerator, summarizer: Summarizer, text_processor: TextProcessor, chunk_size: int=500, chunk_overlap: int=100):
     if chunk_size <= chunk_overlap:
       raise ValueError('chunk_size must be greater than chunk_overlap')
     self.generator = generator
@@ -194,7 +223,7 @@ class ImageProcessor:
 
     i = 0
     while i < len(images):
-      chunk = images[i:i+self.chunk_size]
+      chunk = images[i:min(len(images), i+self.chunk_size)]
       chunks.append(chunk)
       i += self.chunk_size - self.chunk_overlap
 
@@ -216,13 +245,13 @@ class ImageProcessor:
       return questions_json
     else:
       # Summarized the main content
-      # print('Summarizing the images...')
+      print('Summarizing the images...')
       text = ''
       for images in image_segments:
         text += self.summarizer.summarize_images(images) + '\n'
 
-      # print('Summarized text:', text)
-      
+      print('Summarized text:', text)
+
       return text_processor.generate_questions(text, num_question, language)
 
 class DocumentProcessor:
@@ -253,9 +282,10 @@ class PDFProcessor(DocumentProcessor):
     questions = []
     for subquestion in jsons:
       subquestion = subquestion.replace('```json', '').replace('```', '')
+      print(subquestion)
       data = json.loads(subquestion)
       # print(subquestion)
-      
+
       for item in data['questions']:
         questions.append({
           "question": item["question"],
@@ -265,8 +295,15 @@ class PDFProcessor(DocumentProcessor):
         })
 
     merged = {"questions": questions}
+    merged_json = json.dumps(merged, ensure_ascii=False, indent=2)
 
-    return merged
+    return merged_json
+
+  def generate_questions_by_text(self, pdf_path: str, num_question: int, language: str):
+    # Get text from PDF
+
+    # Generate from text
+    return
 
 
 generator = QuestionGenerator(api_key=api_key, default_prompt=default_prompt)
