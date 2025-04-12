@@ -38,7 +38,7 @@ multiple_choice_example = {
 }
 
 # TODO: Remove multiple_choice_example and question_example from system prompt, and move it into the user prompt
-default_prompt = f"""You are an assistant specialized in generating exam-style questions and answers. Your response must only be a JSON object with the following property:
+default_prompt = f"""You are an assistant specialized in generating challenging exam-style questions and answers. Your response must only be a JSON object with the following property:
 "questions": An array of JSON objects, where each JSON object represents a question and answer pair. The JSON object representing the question must have the following properties:
 
 {json.dumps(multiple_choice_example, indent=2)}
@@ -69,7 +69,24 @@ STRICT RULES (REVISED):
 
 7. For math content, use LaTeX formatting $....$.
 
-8. For technical term, using the original language instead of translating it.
+8. For technical terms, use the original language instead of translating it.
+
+9. CREATE CHALLENGING QUESTIONS:
+- Design questions where the answer options are not immediately obvious
+- Include plausible distractors that require careful analysis to eliminate
+- Use higher-order thinking skills (application, analysis, evaluation) rather than just recall
+- For multiple-choice questions, ensure all options are plausible and approximately equal in length
+
+10. ENSURE ANSWER ACCURACY:
+- Double-check that the marked correct answer actually matches the explanation
+- Verify all factual information before generating questions and answers
+- When generating explanations, first determine the correct answer, then write the explanation
+- For each question, explicitly validate that the marked correct answer aligns with the explanation
+
+11. QUALITY CONTROL:
+- After generating each question, verify that the correct answer is marked properly
+- Review the explanation to confirm it supports the marked correct answer
+- If there's any uncertainty about the correct answer, simplify the question or make it more precise
 
 **Examples of GOOD Questions (self-contained, no external references):**
 
