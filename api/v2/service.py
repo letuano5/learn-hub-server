@@ -1,3 +1,5 @@
+import asyncio
+
 import base64
 import io
 
@@ -139,21 +141,22 @@ Now read carefully the contents written on these images, then generate {count} i
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
 """
 
-  def generate_from_base64_images(self, prompt: str, images):
+  async def generate_from_base64_images(self, prompt: str, images):
     contents = [prompt]
     for image in images:
       contents.append({
         "mime_type": "image/jpeg",
         "data": base64.b64decode(image)
     })
-    # TODO: Replace with generate_content_async
-    return self.model.generate_content(contents=contents).text
+    resp = await self.model.generate_content_async(contents=contents)
+    return resp.text
 
-  def generate_from_text(self, content: str):
-    return self.model.generate_content(contents=content).text
+  async def generate_from_text(self, content: str):
+    resp = await self.model.generate_content_async(contents=content)
+    return resp.text
 
 class Summarizer(GenAIClient):
-  def summarize_images(self, images):
+  async def summarize_images(self, images):
     prompt = f'''
 Can you provide a comprehensive summary of these given images? The summary should cover all the key points and main ideas presented in the original text, while also condensing the information into a concise and easy-to-understand format. Please ensure that the summary includes relevant details and examples that support the main ideas, while avoiding any unnecessary information or repetition. The length of the summary should be appropriate for the length and complexity of the original text, providing a clear and accurate overview without omitting any important information.
 Just return the summary without any other text.
@@ -165,7 +168,8 @@ Just return the summary without any other text.
         "data": base64.b64decode(image)
     })
     # TODO: Replace with generate_content_async
-    return self.model.generate_content(contents=contents).text
+    resp = await self.model.generate_content_async(contents=contents)
+    return resp.text
   
 # TODO: Update when error occurred to another chars; fix strings like $t_i = \\\\arg \\\\min_j (S(u,j) = S(v,j))$
 def escape_json_string(json_string):
@@ -209,7 +213,7 @@ class TextProcessor:
     chunks = splitter.get_nodes_from_documents([doc])
     return chunks
 
-  def generate_questions(self, text: str, num_question: int, language: str):
+  async def generate_questions(self, text: str, num_question: int, language: str):
     chunks = self.chunk_document(text)
 
     print(len(chunks))
@@ -222,7 +226,7 @@ class TextProcessor:
       for chunk in chunks:
         prompt = self.generator.get_user_prompt_text(language, num_question_in_chunk + (1 if remain_question > 0 else 0), chunk.text)
         remain_question -= 1
-        questions_json.append(self.generator.generate_from_text(prompt))
+        questions_json.append(await self.generator.generate_from_text(prompt))
 
       return fix_json_array(questions_json)
     else:
@@ -251,7 +255,7 @@ class TextProcessor:
 
       for chunk in selected_chunks:
         prompt = self.generator.get_user_prompt_text(language, 1, chunk)
-        jsons.append(self.generator.generate_from_text(prompt))
+        jsons.append(await self.generator.generate_from_text(prompt))
 
       return fix_json_array(jsons)
 
@@ -279,7 +283,7 @@ class ImageProcessor:
 
     return chunks
 
-  def generate_questions(self, images, num_question: int, language: str):
+  async def generate_questions(self, images, num_question: int, language: str):
     image_segments = self.generate_chunks(images)
 
     if len(image_segments) <= num_question:
@@ -290,7 +294,7 @@ class ImageProcessor:
       for images in image_segments:
         prompt = self.generator.get_user_prompt_images(language, num_question_in_chunk + (1 if remain_question > 0 else 0))
         remain_question -= 1
-        questions_json.append(self.generator.generate_from_base64_images(prompt, images))
+        questions_json.append(await self.generator.generate_from_base64_images(prompt, images))
 
       return fix_json_array(questions_json)
     else:
@@ -298,11 +302,11 @@ class ImageProcessor:
       print('Summarizing the images...')
       text = ''
       for images in image_segments:
-        text += self.summarizer.summarize_images(images) + '\n'
+        text += await self.summarizer.summarize_images(images) + '\n'
 
       print('Summarized text:', text)
 
-      return fix_json_array(self.text_processor.generate_questions(text, num_question, language))
+      return fix_json_array(await self.text_processor.generate_questions(text, num_question, language))
 
   # def generate_questions_by_text(self, text: str, num_question: int, language: str):
   #   return self.text_processor.generate_questions(text, num_question, language)
@@ -340,11 +344,11 @@ class PDFProcessor(DocumentProcessor):
 
     return text
 
-  def generate_questions(self, pdf_path: str, num_question: int, language: str):
-    return self.image_processor.generate_questions(self.pdf_to_base64(pdf_path), num_question, language)
+  async def generate_questions(self, pdf_path: str, num_question: int, language: str):
+    return await self.image_processor.generate_questions(self.pdf_to_base64(pdf_path), num_question, language)
 
-  def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str):
-    return self.text_processor.generate_questions(self.pdf_to_text(pdf_path), num_question, language)
+  async def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str):
+    return await self.text_processor.generate_questions(self.pdf_to_text(pdf_path), num_question, language)
 
 class DOCXProcessor(DocumentProcessor):
 
@@ -372,8 +376,8 @@ class DOCXProcessor(DocumentProcessor):
       text += doc.text + '\n'
     return text
 
-  def generate_questions_from_text(self, docx_path: str, num_question: int, language: str):
-    return self.text_processor.generate_questions(self.docx_to_text(docx_path), num_question, language)
+  async def generate_questions_from_text(self, docx_path: str, num_question: int, language: str):
+    return await self.text_processor.generate_questions(self.docx_to_text(docx_path), num_question, language)
 
 class TextFileProcessor(DocumentProcessor):
   def get_text(self, file_path):
@@ -382,8 +386,8 @@ class TextFileProcessor(DocumentProcessor):
 
     return document.get_content()
 
-  def generate_questions(self, file_path: str, num_question: int, language: str):
-    return self.text_processor.generate_questions(self.get_text(file_path), num_question, language)
+  async def generate_questions(self, file_path: str, num_question: int, language: str):
+    return await self.text_processor.generate_questions(self.get_text(file_path), num_question, language)
 
 
 generator = QuestionGenerator(api_key=api_key, default_prompt=default_prompt)
