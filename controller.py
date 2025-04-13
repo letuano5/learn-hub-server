@@ -2,7 +2,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
-from api.v2.service import pdf_processor, txt_file_processor, doc_processor
+from service.generators.service import pdf_processor, txt_file_processor, doc_processor
 
 import asyncio
 import os
@@ -33,29 +33,20 @@ async def gen(file: UploadFile, count: int, lang: str, background_tasks: Backgro
     content = await file.read()
     tmp.write(content)
   
-  # Sử dụng task ID để theo dõi tiến trình
   task_id = f"{filename}_{count}_{lang}"
   
-  # Khởi tạo task trong background
   background_tasks.add_task(process_file, temp_file_path, file_ext, count, lang, task_id)
   
-  # Trả về ngay lập tức task_id
   return {"task_id": task_id, "status": "processing"}
   
-# Thêm route mới để kiểm tra kết quả
 @app.get("/status/{task_id}")
 async def get_status(task_id: str):
   if task_id in task_results:
     return task_results[task_id]
-    # if task_results[task_id]["status"] == "completed":
-    #   return task_results[task_id]["result"]
-    # return {"status": task_results[task_id]["status"]}
   return {"status": "not_found"}
 
-# Thêm biến lưu trữ kết quả các task
 task_results = {}
 
-# Hàm xử lý file trong background
 async def process_file(temp_file_path, file_ext, count, lang, task_id):
   try:
     task_results[task_id] = {"status": "processing"}

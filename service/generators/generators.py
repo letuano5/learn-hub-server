@@ -1,15 +1,8 @@
-import asyncio
-
-import base64
-import io
-
-import fitz
 import json
-from PIL import Image
-
-import google.generativeai as genai
-from google.genai import types
-from google.api_core.exceptions import InvalidArgument
+from service.generators.base import GenAIClient
+from service.generators.base import fix_json_array
+from service.generators.summarizer import Summarizer
+import base64
 
 from llama_index.core import Document
 from llama_index.core.node_parser import SentenceSplitter
@@ -17,14 +10,6 @@ from llama_index.core.node_parser import SentenceSplitter
 import networkx as nx
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
-from docx2python import docx2python
-
-from llama_index.core import SimpleDirectoryReader
-from llama_index.readers.file import PDFReader, DocxReader
-
-import os
-api_key = os.environ.get('GOOGLE_GENAI_KEY')
 
 question_example = {
     "questions": [
@@ -114,15 +99,6 @@ Focus on testing understanding and critical thinking while staying true to the s
 
 # TODO: Language mapping here
 
-class GenAIClient:
-  def __init__(self, api_key: str, default_prompt: str = ''):
-    genai.configure(api_key=api_key)
-
-    if len(default_prompt) > 0:
-      self.model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=default_prompt)
-    else:
-      self.model = genai.GenerativeModel('gemini-2.0-flash')
-
 class QuestionGenerator(GenAIClient):
   def get_user_prompt_text(self, lang: str, count: int, text: str):
     return f"""
@@ -154,46 +130,7 @@ The generated questions and answers must be in {lang}. However, your response mu
   async def generate_from_text(self, content: str):
     resp = await self.model.generate_content_async(contents=content)
     return resp.text
-
-class Summarizer(GenAIClient):
-  async def summarize_images(self, images):
-    prompt = f'''
-Can you provide a comprehensive summary of these given images? The summary should cover all the key points and main ideas presented in the original text, while also condensing the information into a concise and easy-to-understand format. Please ensure that the summary includes relevant details and examples that support the main ideas, while avoiding any unnecessary information or repetition. The length of the summary should be appropriate for the length and complexity of the original text, providing a clear and accurate overview without omitting any important information.
-Just return the summary without any other text.
-'''
-    contents = [prompt]
-    for image in images:
-      contents.append({
-        "mime_type": "image/jpeg",
-        "data": base64.b64decode(image)
-    })
-    # TODO: Replace with generate_content_async
-    resp = await self.model.generate_content_async(contents=contents)
-    return resp.text
   
-# TODO: Update when error occurred to another chars; fix strings like $t_i = \\\\arg \\\\min_j (S(u,j) = S(v,j))$
-def escape_json_string(json_string):
-  return json_string.replace('\\', '\\' + '\\')
-
-def fix_json_array(jsons):
-  questions = []
-  for subquestion in jsons:
-    subquestion = escape_json_string(subquestion.replace('```json', '').replace('```', ''))
-    print(subquestion)
-    data = json.loads(subquestion)
-    # print(subquestion)
-
-    for item in data['questions']:
-      questions.append({
-        "question": item["question"],
-        "options": item["options"],
-        "answer": item["answer"],
-        "explanation": item["explanation"]
-      })
-
-  merged = {"questions": questions}
-
-  return merged
 
 # Generate questions with text
 class TextProcessor:
@@ -315,85 +252,3 @@ class DocumentProcessor:
   def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor):
     self.text_processor = text_processor
     self.image_processor = image_processor
-
-class PDFProcessor(DocumentProcessor):
-  # https://python.langchain.com/docs/how_to/document_loader_pdf/#use-of-multimodal-models
-  def pdf_to_base64(self, pdf_path: str):
-    pdf_document = fitz.open(pdf_path)
-
-    pages = []
-    for page_number in range(pdf_document.page_count):
-
-      page = pdf_document.load_page(page_number)
-      pix = page.get_pixmap()
-      img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-
-      buffer = io.BytesIO()
-      img.save(buffer, format="PNG")
-
-      pages.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
-
-    return pages
-
-  def pdf_to_text(self, pdf_path: str):
-    text = ""
-    with fitz.open(pdf_path) as doc:
-      for page_num in range(len(doc)):
-        page = doc[page_num]
-        text += page.get_text()
-
-    return text
-
-  async def generate_questions(self, pdf_path: str, num_question: int, language: str):
-    return await self.image_processor.generate_questions(self.pdf_to_base64(pdf_path), num_question, language)
-
-  async def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str):
-    return await self.text_processor.generate_questions(self.pdf_to_text(pdf_path), num_question, language)
-
-class DOCXProcessor(DocumentProcessor):
-
-  # def docx_to_base64_images(self, docx_path):
-  #   # Extract all content including images
-  #   extracted = docx2python(docx_path)
-    
-  #   # Get images
-  #   base64_images = []
-  #   print(extracted, extracted.images)
-  #   for image_data in extracted.images:
-  #     # Each image is stored as (folder_path, image_name, image_bytes)
-  #     # print(image_data)
-  #     # image_bytes = image_data[2]
-  #     image_bytes = extracted.images[image_data]
-  #     base64_encoded = base64.b64encode(image_bytes).decode('utf-8')
-  #     base64_images.append(base64_encoded)
-    
-  #   return base64_images
-  def docx_to_text(self, docx_path: str):
-    docx_reader = DocxReader()
-    docx_docs = docx_reader.load_data(docx_path)
-    text = ''
-    for doc in docx_docs:
-      text += doc.text + '\n'
-    return text
-
-  async def generate_questions_from_text(self, docx_path: str, num_question: int, language: str):
-    return await self.text_processor.generate_questions(self.docx_to_text(docx_path), num_question, language)
-
-class TextFileProcessor(DocumentProcessor):
-  def get_text(self, file_path):
-    reader = SimpleDirectoryReader(input_files=[file_path])
-    document = reader.load_data()[0]
-
-    return document.get_content()
-
-  async def generate_questions(self, file_path: str, num_question: int, language: str):
-    return await self.text_processor.generate_questions(self.get_text(file_path), num_question, language)
-
-
-generator = QuestionGenerator(api_key=api_key, default_prompt=default_prompt)
-summarizer = Summarizer(api_key=api_key)
-text_processor = TextProcessor(generator)
-image_processor = ImageProcessor(generator, summarizer, text_processor)
-pdf_processor = PDFProcessor(text_processor, image_processor)
-txt_file_processor = TextFileProcessor(text_processor, image_processor)
-doc_processor = DOCXProcessor(text_processor, image_processor)
