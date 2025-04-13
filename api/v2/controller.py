@@ -2,7 +2,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.v2.service import processor
+from api.v2.service import pdf_processor, txt_file_processor, doc_processor
 
 import os
 import tempfile
@@ -24,10 +24,23 @@ async def check():
 
 @app.post("/generate")
 async def gen(file: UploadFile, count: int, lang: str):
-  with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+  filename = file.filename
+  file_ext = os.path.splitext(filename)[1].lower()
+
+  with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
     temp_file_path = tmp.name
     content = await file.read()
     tmp.write(content)
-  json_obj = processor.generate_questions(temp_file_path, count, lang)
-  os.remove(temp_file_path)
-  return json_obj
+
+  try:
+    json_obj = {}
+    if file_ext == '.pdf':
+      json_obj = pdf_processor.generate_questions(temp_file_path, count, lang)
+    elif file_ext == '.docx' or file_ext == '.doc':
+      json_obj = doc_processor.generate_questions_from_text(temp_file_path, count, lang)
+    elif file_ext == '.md' or file_ext == '.txt':
+      json_obj = txt_file_processor.generate_questions(temp_file_path, count, lang)
+    return json_obj
+  finally:
+    if os.path.exists(temp_file_path):
+      os.remove(temp_file_path)

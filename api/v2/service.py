@@ -16,6 +16,11 @@ import networkx as nx
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from docx2python import docx2python
+
+from llama_index.core import SimpleDirectoryReader
+from llama_index.readers.file import PDFReader, DocxReader
+
 import os
 api_key = os.environ.get('GOOGLE_GENAI_KEY')
 
@@ -122,7 +127,7 @@ class QuestionGenerator(GenAIClient):
 Now generate {count} insightful question based on the following content that tests understanding of key concepts or important details:
 
 <Begin Document>
-{text}
+"{text}"
 <End Document>
 
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
@@ -161,10 +166,34 @@ Just return the summary without any other text.
     })
     # TODO: Replace with generate_content_async
     return self.model.generate_content(contents=contents).text
+  
+# TODO: Update when error occurred to another chars; fix strings like $t_i = \\\\arg \\\\min_j (S(u,j) = S(v,j))$
+def escape_json_string(json_string):
+  return json_string.replace('\\', '\\' + '\\')
+
+def fix_json_array(jsons):
+  questions = []
+  for subquestion in jsons:
+    subquestion = escape_json_string(subquestion.replace('```json', '').replace('```', ''))
+    print(subquestion)
+    data = json.loads(subquestion)
+    # print(subquestion)
+
+    for item in data['questions']:
+      questions.append({
+        "question": item["question"],
+        "options": item["options"],
+        "answer": item["answer"],
+        "explanation": item["explanation"]
+      })
+
+  merged = {"questions": questions}
+
+  return merged
 
 # Generate questions with text
 class TextProcessor:
-  def __init__(self, generator: QuestionGenerator, chunk_size: int=10000, chunk_overlap: int=1000):
+  def __init__(self, generator: QuestionGenerator, chunk_size: int=100000, chunk_overlap: int=5000):
     if chunk_size <= chunk_overlap:
       raise ValueError('chunk_size must be greater than chunk_overlap')
     self.generator = generator
@@ -183,6 +212,8 @@ class TextProcessor:
   def generate_questions(self, text: str, num_question: int, language: str):
     chunks = self.chunk_document(text)
 
+    print(len(chunks))
+
     if (len(chunks) <= num_question):
       questions_json = []
       num_question_in_chunk = num_question // len(chunks)
@@ -193,7 +224,7 @@ class TextProcessor:
         remain_question -= 1
         questions_json.append(self.generator.generate_from_text(prompt))
 
-      return questions_json
+      return fix_json_array(questions_json)
     else:
       # Summarized the main content
       # https://chatgpt.com/share/67f5d65f-8e78-8012-a3dd-6257744d95ff
@@ -206,7 +237,7 @@ class TextProcessor:
       sim_matrix = cosine_similarity(tfidf_matrix)
 
       graph = nx.from_numpy_array(sim_matrix)
-      scores = nx.pagerank_numpy(graph)
+      scores = nx.pagerank(graph)
       ranked_chunks = sorted(
           ((score, chunk) for chunk, score in zip(chunks, scores.values())),
           key=lambda x: x[0],
@@ -222,7 +253,9 @@ class TextProcessor:
         prompt = self.generator.get_user_prompt_text(language, 1, chunk)
         jsons.append(self.generator.generate_from_text(prompt))
 
-      return jsons
+      return fix_json_array(jsons)
+
+
 
 # Generate questions with images
 class ImageProcessor:
@@ -259,7 +292,7 @@ class ImageProcessor:
         remain_question -= 1
         questions_json.append(self.generator.generate_from_base64_images(prompt, images))
 
-      return questions_json
+      return fix_json_array(questions_json)
     else:
       # Summarized the main content
       print('Summarizing the images...')
@@ -269,10 +302,14 @@ class ImageProcessor:
 
       print('Summarized text:', text)
 
-      return text_processor.generate_questions(text, num_question, language)
+      return fix_json_array(self.text_processor.generate_questions(text, num_question, language))
+
+  # def generate_questions_by_text(self, text: str, num_question: int, language: str):
+  #   return self.text_processor.generate_questions(text, num_question, language)
 
 class DocumentProcessor:
-  def __init__(self, image_processor: ImageProcessor):
+  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor):
+    self.text_processor = text_processor
     self.image_processor = image_processor
 
 class PDFProcessor(DocumentProcessor):
@@ -294,35 +331,65 @@ class PDFProcessor(DocumentProcessor):
 
     return pages
 
+  def pdf_to_text(self, pdf_path: str):
+    text = ""
+    with fitz.open(pdf_path) as doc:
+      for page_num in range(len(doc)):
+        page = doc[page_num]
+        text += page.get_text()
+
+    return text
+
   def generate_questions(self, pdf_path: str, num_question: int, language: str):
-    jsons = self.image_processor.generate_questions(self.pdf_to_base64(pdf_path), num_question, language)
-    questions = []
-    for subquestion in jsons:
-      subquestion = subquestion.replace('```json', '').replace('```', '')
-      print(subquestion)
-      data = json.loads(subquestion)
-      # print(subquestion)
+    return self.image_processor.generate_questions(self.pdf_to_base64(pdf_path), num_question, language)
 
-      for item in data['questions']:
-        questions.append({
-          "question": item["question"],
-          "options": item["options"],
-          "answer": item["answer"],
-          "explanation": item["explanation"]
-        })
+  def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str):
+    return self.text_processor.generate_questions(self.pdf_to_text(pdf_path), num_question, language)
 
-    merged = {"questions": questions}
-    return merged
+class DOCXProcessor(DocumentProcessor):
 
-  def generate_questions_by_text(self, pdf_path: str, num_question: int, language: str):
-    # Get text from PDF
+  # def docx_to_base64_images(self, docx_path):
+  #   # Extract all content including images
+  #   extracted = docx2python(docx_path)
+    
+  #   # Get images
+  #   base64_images = []
+  #   print(extracted, extracted.images)
+  #   for image_data in extracted.images:
+  #     # Each image is stored as (folder_path, image_name, image_bytes)
+  #     # print(image_data)
+  #     # image_bytes = image_data[2]
+  #     image_bytes = extracted.images[image_data]
+  #     base64_encoded = base64.b64encode(image_bytes).decode('utf-8')
+  #     base64_images.append(base64_encoded)
+    
+  #   return base64_images
+  def docx_to_text(self, docx_path: str):
+    docx_reader = DocxReader()
+    docx_docs = docx_reader.load_data(docx_path)
+    text = ''
+    for doc in docx_docs:
+      text += doc.text + '\n'
+    return text
 
-    # Generate from text
-    return
+  def generate_questions_from_text(self, docx_path: str, num_question: int, language: str):
+    return self.text_processor.generate_questions(self.docx_to_text(docx_path), num_question, language)
+
+class TextFileProcessor(DocumentProcessor):
+  def get_text(self, file_path):
+    reader = SimpleDirectoryReader(input_files=[file_path])
+    document = reader.load_data()[0]
+
+    return document.get_content()
+
+  def generate_questions(self, file_path: str, num_question: int, language: str):
+    return self.text_processor.generate_questions(self.get_text(file_path), num_question, language)
 
 
 generator = QuestionGenerator(api_key=api_key, default_prompt=default_prompt)
 summarizer = Summarizer(api_key=api_key)
 text_processor = TextProcessor(generator)
 image_processor = ImageProcessor(generator, summarizer, text_processor)
-processor = PDFProcessor(image_processor)
+pdf_processor = PDFProcessor(text_processor, image_processor)
+txt_file_processor = TextFileProcessor(text_processor, image_processor)
+doc_processor = DOCXProcessor(text_processor, image_processor)
