@@ -11,3 +11,6 @@ networkx
 scikit-learn
 docx2python
 docx2txt
+pinecone
+llama-index-embeddings-google
+llama-index-vector-stores-postgres

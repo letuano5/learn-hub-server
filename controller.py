@@ -8,6 +8,7 @@ import asyncio
 import os
 import tempfile
 import shutil
+import uuid
 
 app = FastAPI()
 
@@ -23,6 +24,9 @@ app.add_middleware(
 async def check():
   return {"Message": "Live"}
 
+MAX_CONCURRENT_TASKS = 5
+task_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
+
 @app.post("/generate")
 async def gen(file: UploadFile, count: int, lang: str, background_tasks: BackgroundTasks):
   filename = file.filename
@@ -33,7 +37,7 @@ async def gen(file: UploadFile, count: int, lang: str, background_tasks: Backgro
     content = await file.read()
     tmp.write(content)
   
-  task_id = f"{filename}_{count}_{lang}"
+  task_id = str(uuid.uuid4())
   
   background_tasks.add_task(process_file, temp_file_path, file_ext, count, lang, task_id)
   
@@ -49,16 +53,17 @@ task_results = {}
 
 async def process_file(temp_file_path, file_ext, count, lang, task_id):
   try:
-    task_results[task_id] = {"status": "processing"}
-    json_obj = {}
-    if file_ext == '.pdf':
-      json_obj = await pdf_processor.generate_questions(temp_file_path, count, lang)
-    elif file_ext == '.docx' or file_ext == '.doc':
-      json_obj = await doc_processor.generate_questions_from_text(temp_file_path, count, lang)
-    elif file_ext == '.md' or file_ext == '.txt':
-      json_obj = await txt_file_processor.generate_questions(temp_file_path, count, lang)
-    
-    task_results[task_id] = {"status": "completed", "result": json_obj}
+    async with task_semaphore:
+      task_results[task_id] = {"status": "processing"}
+      json_obj = {}
+      if file_ext == '.pdf':
+        json_obj = await pdf_processor.generate_questions(temp_file_path, count, lang)
+      elif file_ext == '.docx' or file_ext == '.doc':
+        json_obj = await doc_processor.generate_questions_from_text(temp_file_path, count, lang)
+      elif file_ext == '.md' or file_ext == '.txt':
+        json_obj = await txt_file_processor.generate_questions(temp_file_path, count, lang)
+      
+      task_results[task_id] = {"status": "completed", "result": json_obj}
   except Exception as e:
     import traceback
     traceback.print_exc()
