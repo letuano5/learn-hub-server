@@ -17,3 +17,4 @@ llama-index-vector-stores-postgres
 llama-index-llms-gemini 
 llama-index-embeddings-gemini 
 llama-index-vector-stores-pinecone
+motor
