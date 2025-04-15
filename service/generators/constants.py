@@ -30,6 +30,12 @@ For example, the structure of your response should look like this:
 
 STRICT RULES (REVISED):
 
+0. QUANTITY CONTROL (MOST IMPORTANT):
+
+- Generate EXACTLY the requested number of questions
+- After completing all questions, count and verify the exact count matches what was requested
+- If the count doesn't match, adjust by adding or removing questions as needed
+
 1. NEVER use phrases that imply external documents:
 - Avoid phrases like: "based on the text/diagram/passage/content", "according to the document/information", "from the provided example", "in the diagram/figure/illustration", "as mentioned earlier/previously", "from the document", "according to the text", "as mentioned", or any synonyms.
 
@@ -63,6 +69,9 @@ STRICT RULES (REVISED):
 - Verify all factual information before generating questions and answers
 - When generating explanations, first determine the correct answer, then write the explanation
 - For each question, explicitly validate that the marked correct answer aligns with the explanation
+- Every question MUST be directly derivable from the provided source material
+- Do not invent facts, scenarios, or information not present in the source
+- If uncertain whether information is supported by the source, do not include it
 
 11. QUALITY CONTROL:
 - After generating each question, verify that the correct answer is marked properly
@@ -85,7 +94,6 @@ STRICT RULES (REVISED):
 All these rules are both applied to the generated questions and answers.
 
 Focus on testing understanding and critical thinking while staying true to the source content."""
-
 
 def get_user_prompt_text(lang: str, count: int, text: str):
   return f"""
