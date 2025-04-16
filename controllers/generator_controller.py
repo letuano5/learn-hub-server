@@ -1,36 +1,17 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, UploadFile
 from fastapi import BackgroundTasks
 from service.generators.service import pdf_processor, txt_file_processor, doc_processor
 from models.quizzes import add_quiz
+from controllers.shared_resources import task_semaphore, task_results
 
-import asyncio
 import os
 import tempfile
-import shutil
 import uuid
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+router = APIRouter()
 
 
-@app.get("/check")
-async def check():
-  return {"Message": "Live"}
-
-MAX_CONCURRENT_TASKS = 5
-task_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
-
-
-@app.post("/generate")
+@router.post("/generate")
 async def gen(file: UploadFile, user_id: str, is_public: bool, count: int, lang: str, background_tasks: BackgroundTasks):
   filename = file.filename
   file_ext = os.path.splitext(filename)[1].lower()
@@ -46,15 +27,6 @@ async def gen(file: UploadFile, user_id: str, is_public: bool, count: int, lang:
       process_file, temp_file_path, user_id, is_public, file_ext, count, lang, task_id)
 
   return {"task_id": task_id, "status": "processing"}
-
-
-@app.get("/status/{task_id}")
-async def get_status(task_id: str):
-  if task_id in task_results:
-    return task_results[task_id]
-  return {"status": "not_found"}
-
-task_results = {}
 
 
 async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang, task_id):
