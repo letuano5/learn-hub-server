@@ -14,7 +14,7 @@ question_example = {
 multiple_choice_example = {
     "question": "The question",
     "options": "An array of 4 strings representing the choices",
-    "answer": "The number corresponding to the index of the correct answer in the options array",
+    "answer": "An integer in range [0, 3], corresponding to the index of the correct answer in the options array",
     "explanation": "Explain why you choose that answer"
 }
 
