@@ -1,5 +1,6 @@
 import google.generativeai as genai
 import json
+from catboxpy import AsyncCatboxClient
 
 
 class GenAIClient:
@@ -13,8 +14,11 @@ class GenAIClient:
       self.model = genai.GenerativeModel('gemini-2.0-flash')
 
 # TODO: Update when error occurred to another chars (" for example)
+
+
 def load_json(json_string):
-  return json.loads(json_string.replace('\\', '\\\\'))  
+  return json.loads(json_string.replace('\\', '\\\\'))
+
 
 def fix_json_array(jsons):
   questions = []
@@ -37,3 +41,8 @@ def fix_json_array(jsons):
 
   return merged
 
+
+async def upload_file(file_path: str):
+  client = AsyncCatboxClient()
+  file_url = await client.upload(file_path)
+  return file_url

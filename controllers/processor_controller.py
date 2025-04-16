@@ -2,12 +2,17 @@ from fastapi import APIRouter, Form, UploadFile, BackgroundTasks
 from controllers.shared_resources import task_semaphore, task_results
 from typing import Annotated
 from service.processors.service import query_document, process_pdf, process_docx, process_text_file, add_document
+from service.generators.base import upload_file
+from models.documents import add_document as save_document_info
+from catboxpy import AsyncCatboxClient
 
 import os
 import tempfile
 import uuid
 
 router = APIRouter()
+
+catbox_client = AsyncCatboxClient()
 
 
 @router.post("/add")
@@ -23,7 +28,7 @@ async def add_doc(file: UploadFile, user_id: str, is_public: bool, background_ta
   task_id = str(uuid.uuid4())
 
   background_tasks.add_task(
-      process_file, temp_file_path, user_id, is_public, file_ext, task_id, mode)
+      process_file, temp_file_path, user_id, is_public, file_ext, task_id, mode, filename)
 
   return {"task_id": task_id, "status": "processing"}
 
@@ -52,10 +57,16 @@ async def get_query_result(query_text: str, user_id: str, task_id):
     task_results[task_id] = {"status": "error", "message": str(e)}
 
 
-async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text"):
+async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
   try:
     async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
+      task_results[task_id] = {"status": "uploading"}
+
+      file_url = await upload_file(temp_file_path)
+
+      await save_document_info(user_id, is_public, filename, file_url)
+
+      task_results[task_id] = {"status": "processing", "file_url": file_url}
 
       if file_ext == '.pdf':
         documents = await process_pdf(temp_file_path, mode)
@@ -70,7 +81,8 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
 
       task_results[task_id] = {
           "status": "completed",
-          "message": f"Successfully processed {len(documents)} documents"
+          "message": f"Successfully processed {len(documents)} documents",
+          "file_url": file_url
       }
   except Exception as e:
     import traceback

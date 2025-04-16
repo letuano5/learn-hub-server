@@ -95,6 +95,7 @@ All these rules are both applied to the generated questions and answers.
 
 Focus on testing understanding and critical thinking while staying true to the source content."""
 
+
 def get_user_prompt_text(lang: str, count: int, text: str):
   return f"""
 Now generate {count} insightful question based on the following content that tests understanding of key concepts or important details:
@@ -105,6 +106,7 @@ Now generate {count} insightful question based on the following content that tes
 
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
 """
+
 
 def get_user_prompt_images(lang: str, count: int):
   return f"""
