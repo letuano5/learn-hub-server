@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks
 from models.quizzes import update_quiz, delete_quiz, search_quizzes
 from bson import ObjectId
 from typing import Dict, Optional, List

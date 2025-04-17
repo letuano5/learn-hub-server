@@ -33,6 +33,23 @@ async def add_doc(file: UploadFile, user_id: str, is_public: bool, background_ta
   return {"task_id": task_id, "status": "processing"}
 
 
+@router.post("/upload")
+async def upload_doc(file: UploadFile, user_id: str, is_public: bool, background_tasks: BackgroundTasks):
+  filename = file.filename
+  file_ext = os.path.splitext(filename)[1].lower()
+
+  with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+    temp_file_path = tmp.name
+    content = await file.read()
+    tmp.write(content)
+
+  task_id = str(uuid.uuid4())
+  background_tasks.add_task(
+      process_upload_file, temp_file_path, user_id, is_public, filename, task_id)
+
+  return {"task_id": task_id, "status": "processing"}
+
+
 @router.post("/query")
 async def query(user_id: Annotated[str, Form()], query_text: Annotated[str, Form()], background_tasks: BackgroundTasks):
   task_id = str(uuid.uuid4())
@@ -57,13 +74,34 @@ async def get_query_result(query_text: str, user_id: str, task_id):
     task_results[task_id] = {"status": "error", "message": str(e)}
 
 
+async def process_upload_file(temp_file_path, user_id, is_public, filename, task_id):
+  try:
+    async with task_semaphore:
+      task_results[task_id] = {"status": "uploading"}
+
+      file_url = await upload_file(temp_file_path)
+      await save_document_info(user_id, is_public, filename, file_url)
+
+      task_results[task_id] = {
+          "status": "completed",
+          "message": f"Uploaded file {filename} successfully",
+          "file_url": file_url
+      }
+  except Exception as e:
+    import traceback
+    traceback.print_exc()
+    task_results[task_id] = {"status": "error", "message": str(e)}
+  finally:
+    if os.path.exists(temp_file_path):
+      os.remove(temp_file_path)
+
+
 async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
   try:
     async with task_semaphore:
       task_results[task_id] = {"status": "uploading"}
 
       file_url = await upload_file(temp_file_path)
-
       await save_document_info(user_id, is_public, filename, file_url)
 
       task_results[task_id] = {"status": "processing", "file_url": file_url}
