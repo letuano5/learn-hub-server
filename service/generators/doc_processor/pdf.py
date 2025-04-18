@@ -21,11 +21,34 @@ class PDFProcessor(DocumentProcessor):
         }
       
       page = pdf_document.load_page(page_number)
-      pix = page.get_pixmap()
+
+      original_width = page.rect.width
+      original_height = page.rect.height
+      
+      is_portrait = original_height > original_width
+      
+      max_width = 720 if is_portrait else 1280
+      max_height = 1280 if is_portrait else 720
+      
+      width_scale = max_width / original_width
+      height_scale = max_height / original_height
+      scale = min(width_scale, height_scale)
+      
+      scale = min(scale, 1.0)
+
+      print(original_width, original_height, scale)
+
+      # Create pixmap with calculated scale
+      pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
       img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
       
       buffer = io.BytesIO()
-      img.save(buffer, format="PNG")
+      # Save PNG with optimization
+      img.save(buffer, 
+              format="PNG",
+              optimize=True,  # Enable PNG optimization
+              compress_level=6)  # Balanced compression
+      
       pages.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
     
     return pages

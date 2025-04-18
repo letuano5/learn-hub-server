@@ -3,7 +3,7 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-MAX_CONCURRENT_TASKS = 5
+MAX_CONCURRENT_TASKS = 3
 task_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
 
 
