@@ -23,6 +23,8 @@ async def gen(file: UploadFile, user_id: str, is_public: bool, count: int, lang:
 
   task_id = str(uuid.uuid4())
 
+  task_results[task_id] = {"status": "in_queue"}
+
   background_tasks.add_task(
       process_file, temp_file_path, user_id, is_public, file_ext, count, lang, task_id)
 
@@ -32,18 +34,18 @@ async def gen(file: UploadFile, user_id: str, is_public: bool, count: int, lang:
 async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang, task_id):
   try:
     async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
+      task_results[task_id] = {"status": "processing", "progress": "Starting file processing"}
       json_obj = {}
       if file_ext == '.pdf':
-        json_obj = await pdf_processor.generate_questions(temp_file_path, count, lang)
+        json_obj = await pdf_processor.generate_questions(temp_file_path, count, lang, task_id)
       elif file_ext == '.docx' or file_ext == '.doc':
-        json_obj = await doc_processor.generate_questions_from_text(temp_file_path, count, lang)
+        json_obj = await doc_processor.generate_questions_from_text(temp_file_path, count, lang, task_id)
       elif file_ext == '.md' or file_ext == '.txt':
-        json_obj = await txt_file_processor.generate_questions(temp_file_path, count, lang)
+        json_obj = await txt_file_processor.generate_questions(temp_file_path, count, lang, task_id)
 
-      task_results[task_id] = {"status": "completed", "result": json_obj}
       if len(json_obj) > 0:
         await add_quiz(json_obj, user_id, is_public)
+        task_results[task_id] = {"status": "completed", "result": json_obj}
   except Exception as e:
     import traceback
     traceback.print_exc()
