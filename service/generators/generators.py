@@ -147,6 +147,8 @@ class ImageProcessor:
   async def generate_questions(self, images, num_question: int, language: str):
     image_segments = self.generate_chunks(images)
 
+    print('Generating', len(image_segments), num_question)
+
     if len(image_segments) <= num_question:
       # Just throw the image directly to the model
       tasks = []

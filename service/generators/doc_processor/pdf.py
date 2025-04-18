@@ -3,6 +3,7 @@ import fitz
 from PIL import Image
 import base64
 import io
+import asyncio
 
 class PDFProcessor(DocumentProcessor):
   # https://python.langchain.com/docs/how_to/document_loader_pdf/#use-of-multimodal-models
@@ -33,7 +34,9 @@ class PDFProcessor(DocumentProcessor):
     return text
 
   async def generate_questions(self, pdf_path: str, num_question: int, language: str):
-    return await self.image_processor.generate_questions(self.pdf_to_base64(pdf_path), num_question, language)
+    base64_pages = await asyncio.to_thread(self.pdf_to_base64, pdf_path)
+    return await self.image_processor.generate_questions(base64_pages, num_question, language)
 
   async def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str):
-    return await self.text_processor.generate_questions(self.pdf_to_text(pdf_path), num_question, language)
+    text = await asyncio.to_thread(self.pdf_to_text, pdf_path)
+    return await self.text_processor.generate_questions(text, num_question, language)
