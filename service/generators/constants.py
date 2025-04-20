@@ -194,6 +194,8 @@ INSTEAD: Make questions fully self-sufficient by incorporating necessary informa
      * Tests substantive knowledge
      * Makes sense without original document
 
+8. If you encounter " character, please replace it with ''
+
 **Examples of GOOD Questions (self-contained, no external references):**
 
 * "In the process of photosynthesis in plants, chlorophyll absorbs energy from sunlight to convert water and carbon dioxide into organic matter and oxygen. In which cellular organelle does this process primarily occur?"

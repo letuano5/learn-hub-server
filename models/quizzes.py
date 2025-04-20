@@ -15,7 +15,7 @@ async def add_quiz(quiz, user_id: str, is_public: bool = True):
       'last_modified_date': datetime.now(timezone.utc),
       'num_question': len(quiz_with_info.get('questions', [])),
       'difficulty': 'N/A',
-      'category': 'N/A'
+      'category': ['N/A']
   })
   return await collection.insert_one(quiz_with_info)
 
@@ -40,6 +40,16 @@ async def delete_quiz(quiz_id: str):
 
   result = await collection.delete_one({'_id': object_id})
   return result
+
+
+async def get_quiz(quiz_id: str):
+  object_id = ObjectId(quiz_id)
+  quiz = await collection.find_one({'_id': object_id})
+  
+  if quiz and '_id' in quiz:
+    quiz['_id'] = str(quiz['_id'])
+  
+  return quiz
 
 
 async def search_quizzes(
@@ -83,7 +93,9 @@ async def search_quizzes(
   if categories:
     query['category'] = {'$in': categories}
 
-  cursor = collection.find(query)
+  projection = {'questions': 0}
+  
+  cursor = collection.find(query, projection)
   if start is not None:
     cursor = cursor.skip(start)
   if size is not None:
@@ -96,3 +108,42 @@ async def search_quizzes(
       doc['_id'] = str(doc['_id'])
 
   return results
+
+
+async def count_quizzes(
+  user_id: str,
+  is_public: bool,
+  min_created_date: Optional[datetime] = None,
+  max_created_date: Optional[datetime] = None,
+  min_last_modified: Optional[datetime] = None,
+  max_last_modified: Optional[datetime] = None,
+  difficulty: Optional[str] = None,
+  categories: Optional[List[str]] = None
+) -> int:
+  query = {
+    "user_id": user_id,
+    "is_public": is_public
+  }
+  
+  if min_created_date or max_created_date:
+    query["created_date"] = {}
+    if min_created_date:
+      query["created_date"]["$gte"] = min_created_date
+    if max_created_date:
+      query["created_date"]["$lte"] = max_created_date
+  
+  if min_last_modified or max_last_modified:
+    query["last_modified_date"] = {}
+    if min_last_modified:
+      query["last_modified_date"]["$gte"] = min_last_modified
+    if max_last_modified:
+      query["last_modified_date"]["$lte"] = max_last_modified
+  
+  if difficulty:
+    query["difficulty"] = difficulty
+  
+  if categories:
+    query["category"] = {"$in": categories}
+  
+  count = await collection.count_documents(query)
+  return count

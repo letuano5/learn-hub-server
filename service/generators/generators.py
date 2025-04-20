@@ -32,13 +32,7 @@ class QuestionGenerator(GenAIClient):
     return resp.text
 
   async def generate_from_genai_link(self, prompt: str, link):
-    # print(link.name, link.display_name, link.uri)
-    # print('default_prompt, prompt, link)
-    print('def=', default_prompt)
-    # print('prm=', prompt)
     contents = [prompt, link]
-    # print('link=', link)
-    print(contents)
     resp = await self.model.generate_content_async(contents=contents)
     return resp.text
 
@@ -213,7 +207,6 @@ class FileProcessor:
 
   async def generate_questions(self, genai_link, num_question: int, language: str):
     prompt = get_user_prompt_file(lang=language, count=num_question)
-    print(prompt)
     return fix_json_array([await self.generator.generate_from_genai_link(prompt, genai_link)])
 
 
