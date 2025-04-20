@@ -1,20 +1,26 @@
-import google.generativeai as genai
+import google.generativeai as old_genai
 import json
 from catboxpy import AsyncCatboxClient
-
+from google import genai
+from google.genai import types
+import asyncio
+import pathlib
 
 class GenAIClient:
   def __init__(self, api_key: str, default_prompt: str = ''):
-    genai.configure(api_key=api_key)
+    old_genai.configure(api_key=api_key)
 
     if len(default_prompt) > 0:
-      self.model = genai.GenerativeModel(
+      self.model = old_genai.GenerativeModel(
           'gemini-2.0-flash', system_instruction=default_prompt)
     else:
-      self.model = genai.GenerativeModel('gemini-2.0-flash')
+      self.model = old_genai.GenerativeModel('gemini-2.0-flash')
+
+class FileUploader(GenAIClient):
+  async def upload_pdf(self, pdf_path: str):
+    return await asyncio.to_thread(old_genai.upload_file, pdf_path)
 
 # TODO: Update when error occurred to another chars (" for example)
-
 
 def load_json(json_string):
   return json.loads(json_string.replace('\\', '\\\\'))

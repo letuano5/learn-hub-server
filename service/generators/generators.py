@@ -2,7 +2,7 @@ import asyncio
 from service.generators.base import GenAIClient
 from service.generators.base import fix_json_array
 from service.generators.summarizer import Summarizer
-from service.generators.constants import default_prompt, get_user_prompt_images, get_user_prompt_text
+from service.generators.constants import default_prompt, get_user_prompt_images, get_user_prompt_text, get_user_prompt_file
 import base64
 
 from llama_index.core import Document
@@ -29,6 +29,11 @@ class QuestionGenerator(GenAIClient):
 
   async def generate_from_text(self, content: str):
     resp = await self.model.generate_content_async(contents=content)
+    return resp.text
+
+  async def generate_from_genai_link(self, prompt: str, link):
+    # print(link.name, link.display_name, link.uri)
+    resp = await self.model.generate_content_async(contents=[prompt, link])
     return resp.text
 
 
@@ -181,10 +186,8 @@ class ImageProcessor:
       for images in image_segments:
         summarize_tasks.append(self.summarizer.summarize_images(images))
 
-      # Chạy tất cả tasks đồng thời
       summaries = await asyncio.gather(*summarize_tasks, return_exceptions=True)
 
-      # Xử lý các trường hợp lỗi và ghép text
       text = ''
       for summary in summaries:
         if isinstance(summary, Exception):
@@ -196,11 +199,19 @@ class ImageProcessor:
 
       return fix_json_array(await self.text_processor.generate_questions(text, num_question, language))
 
-  # def generate_questions_by_text(self, text: str, num_question: int, language: str):
-  #   return self.text_processor.generate_questions(text, num_question, language)
+
+# Generate questions with file, just support PDF
+class FileProcessor:
+  def __init__(self, generator: QuestionGenerator):
+    self.generator = generator
+
+  async def generate_questions(self, genai_link, num_question: int, language: str):
+    prompt = get_user_prompt_file(lang=language, count=num_question)
+    return fix_json_array([await self.generator.generate_from_genai_link(prompt, genai_link)])
 
 
 class DocumentProcessor:
-  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor):
+  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor, file_processor: FileProcessor):
     self.text_processor = text_processor
     self.image_processor = image_processor
+    self.file_processor = file_processor

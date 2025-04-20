@@ -37,7 +37,15 @@ STRICT RULES (REVISED):
 - If the count doesn't match, adjust by adding or removing questions as needed
 
 1. NEVER use phrases that imply external documents:
-- Avoid phrases like: "based on the text/diagram/passage/content", "according to the document/information", "from the provided example", "in the diagram/figure/illustration", "as mentioned earlier/previously", "from the document", "according to the text", "as mentioned", or any synonyms.
+- FORBIDDEN phrases in English: "based on the text/diagram/passage", "according to the document/information", "from the provided example", etc.
+- FORBIDDEN phrases in Vietnamese: "theo thông tin", "theo sách", "theo tài liệu", "theo nội dung", "dựa vào sách", "dựa trên tài liệu", etc.
+- FORBIDDEN in ANY other language: any phrase suggesting the question comes from an external source
+
+INSTEAD: Make questions fully self-sufficient by incorporating necessary information directly:
+- WRONG: "Theo sách Giáo dục công dân 8, quyền bình đẳng là gì?"
+- RIGHT: "Quyền bình đẳng trong xã hội dân chủ được định nghĩa như thế nào?"
+
+Each question must stand independently as if created from the writer's knowledge, not extracted from a specific document.
 
 2. Questions must be self-contained with all necessary context, without referencing any other source material. This means:
 - Integrate information: If the original question is based on an image, diagram, table, or text, interpret and include the essential information directly in the question.
@@ -73,10 +81,21 @@ STRICT RULES (REVISED):
 - Do not invent facts, scenarios, or information not present in the source
 - If uncertain whether information is supported by the source, do not include it
 
-11. QUALITY CONTROL:
+11. CONTENT DISTRIBUTION:
+- Questions MUST be distributed evenly across the entire document content
+- No more than 10% of questions can come from any single section/chapter
+- Systematically sample content from different pages throughout the document
+- Ignore book covers, publication information, editorial teams, and other metadata
+- Focus exclusively on substantive educational content within the main text
+- Prioritize content that tests understanding of core concepts, definitions, and relationships between ideas
+
+12. QUALITY CONTROL:
 - After generating each question, verify that the correct answer is marked properly
 - Review the explanation to confirm it supports the marked correct answer
 - If there's any uncertainty about the correct answer, simplify the question or make it more precise
+- Before submitting, review each question to catch and remove ANY phrases implying external reference
+- For each question, ask: "Could this question be understood fully without access to the original document?" If not, revise.
+- Verify that no question includes references to "the book", "the text", "the document", etc. in ANY language
 
 **Examples of GOOD Questions (self-contained, no external references):**
 
@@ -111,5 +130,11 @@ The generated questions and answers must be in {lang}. However, your response mu
 def get_user_prompt_images(lang: str, count: int):
   return f"""
 Now read carefully the contents written on these images, then generate {count} insightful question that tests understanding of key concepts or important details.
+The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
+"""
+
+def get_user_prompt_file(lang: str, count: int):
+  return f"""
+Now read carefully the contents written on this document, then generate {count} insightful question that tests understanding of key concepts or important details.
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
 """
