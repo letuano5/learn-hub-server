@@ -32,9 +32,10 @@ class PDFProcessor(DocumentProcessor):
         pix = page.get_pixmap()
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-        buffer = io.BytesIO()
+        buffer = io.BytesIO() 
         img.save(buffer, format="PNG")
         pages.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
+        # print(page_number, ':', len(pages[-1]))
 
     return pages
 
@@ -53,6 +54,12 @@ class PDFProcessor(DocumentProcessor):
     return text
 
   async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None):
+    with fitz.open(pdf_path) as doc:
+      total_pages = len(doc)
+      if total_pages > 300:
+        if task_id:
+          task_results[task_id] = {"status": "failed", "progress": f"PDF with {total_pages} exceeds our limit"}
+        return {}
     if task_id:
       task_results[task_id] = {"status": "processing",
                                "progress": f"Generating questions from {pdf_path}"}
@@ -61,12 +68,6 @@ class PDFProcessor(DocumentProcessor):
 
   async def generate_questions_from_images(self, pdf_path: str, num_question: int, language: str, task_id: str = None):
     base64_pages = await asyncio.to_thread(self.pdf_to_base64, pdf_path, task_id)
-    with fitz.open(pdf_path) as doc:
-      total_pages = len(doc)
-      if total_pages > 300:
-        if task_id:
-          task_results[task_id] = {"status": "failed", "progress": f"PDF with {total_pages} exceeds our limit"}
-        return {}
     if task_id:
       task_results[task_id] = {"status": "processing",
                                "progress": "Generating questions from images"}

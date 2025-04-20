@@ -27,13 +27,13 @@ def load_json(json_string):
 
 
 def fix_json_array(jsons):
+  print('received=', jsons)
   questions = []
   for subquestion in jsons:
     subquestion = subquestion.replace('```json', '').replace('```', '')
     print(subquestion)
     data = load_json(subquestion)
     print(data)
-    # print(subquestion)
 
     for item in data['questions']:
       questions.append({
