@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from models.quizzes import update_quiz, delete_quiz, search_quizzes, count_quizzes, get_quiz
 from bson import ObjectId
 from typing import Dict, Optional, List
@@ -40,136 +40,64 @@ class SearchQuery(BaseModel):
 
 
 @router.put("/{quiz_id}")
-async def update_quiz_route(quiz_id: str, quiz_data: Dict, background_tasks: BackgroundTasks):
-  task_id = str(uuid.uuid4())
-  background_tasks.add_task(process_update_quiz, quiz_id, quiz_data, task_id)
-  return {"task_id": task_id, "status": "processing"}
+async def update_quiz_direct(quiz_id: str, quiz_data: Dict):
+  try:
+    ObjectId(quiz_id)
+    result = await update_quiz(quiz_id, quiz_data)
+    if result.modified_count == 0:
+      return {"status": "error", "message": "Quiz not found"}
+    return {"status": "success", "message": "Quiz updated successfully"}
+  except Exception as e:
+    return {"status": "error", "message": str(e)}
 
 
 @router.delete("/{quiz_id}")
-async def delete_quiz_route(quiz_id: str, background_tasks: BackgroundTasks):
-  task_id = str(uuid.uuid4())
-  background_tasks.add_task(process_delete_quiz, quiz_id, task_id)
-  return {"task_id": task_id, "status": "processing"}
+async def delete_quiz_direct(quiz_id: str):
+  try:
+    ObjectId(quiz_id)
+    result = await delete_quiz(quiz_id)
+    if result.deleted_count == 0:
+      return {"status": "error", "success": False, "message": "Quiz not found"}
+    return {"status": "success", "success": True, "message": "Quiz deleted successfully"}
+  except Exception as e:
+    return {"status": "error", "success": False, "message": str(e)}
 
 
 @router.get("/{quiz_id}")
-async def get_quiz_route(quiz_id: str, background_tasks: BackgroundTasks):
-  task_id = str(uuid.uuid4())
-  background_tasks.add_task(process_get_quiz, quiz_id, task_id)
-  return {"task_id": task_id, "status": "processing"}
+async def get_quiz_direct(quiz_id: str):
+  try:
+    ObjectId(quiz_id)
+    quiz = await get_quiz(quiz_id)
+    if not quiz:
+      return {"status": "error", "message": "Quiz not found"}
+    return {"status": "success", "data": quiz, "message": "Quiz fetched successfully"}
+  except Exception as e:
+    return {"status": "error", "message": str(e)}
 
 
 @router.post("/search")
-async def search_quizzes_route(query: SearchQuery, background_tasks: BackgroundTasks):
-  task_id = str(uuid.uuid4())
-  background_tasks.add_task(process_search_quizzes, query, task_id)
-  return {"task_id": task_id, "status": "processing"}
-
-
-@router.post("/count")
-async def count_quizzes_route(query: SearchQuery, background_tasks: BackgroundTasks):
-  task_id = str(uuid.uuid4())
-  background_tasks.add_task(process_count_quizzes, query, task_id)
-  return {"task_id": task_id, "status": "processing"}
-
-
-async def process_update_quiz(quiz_id: str, quiz_data: Dict, task_id: str):
+async def search_quizzes_direct(query: SearchQuery):
   try:
-    async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
-      
-      ObjectId(quiz_id)
-      
-      result = await update_quiz(quiz_id, quiz_data)
-      if result.modified_count == 0:
-        task_results[task_id] = {"status": "error", "message": "Quiz not found"}
-        return
-      
-      task_results[task_id] = {
-        "status": "completed",
-        "message": "Quiz updated successfully"
-      }
+    results = await search_quizzes(
+      user_id=query.user_id,
+      is_public=query.is_public,
+      min_created_date=query.min_created_date,
+      max_created_date=query.max_created_date,
+      min_last_modified=query.min_last_modified,
+      max_last_modified=query.max_last_modified,
+      difficulty=query.difficulty,
+      categories=query.categories,
+      size=query.size,
+      start=query.start
+    )
+    return {
+      "status": "success",
+      "data": results,
+      "total": len(results),
+      "message": "Quizzes fetched successfully"
+    }
   except Exception as e:
-    import traceback
-    traceback.print_exc()
-    task_results[task_id] = {"status": "error", "message": str(e)}
-
-
-async def process_delete_quiz(quiz_id: str, task_id: str):
-  try:
-    async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
-      
-      ObjectId(quiz_id)
-      
-      result = await delete_quiz(quiz_id)
-      if result.deleted_count == 0:
-        task_results[task_id] = {"status": "error", "success": False, "message": "Quiz not found"}
-        return
-      
-      task_results[task_id] = {
-        "status": "completed",
-        "success": True,
-        "message": "Quiz deleted successfully"
-      }
-  except Exception as e:
-    import traceback
-    traceback.print_exc()
-    task_results[task_id] = {"status": "error", "success": False, "message": str(e)}
-
-
-async def process_get_quiz(quiz_id: str, task_id: str):
-  try:
-    async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
-      
-      ObjectId(quiz_id)
-      
-      quiz = await get_quiz(quiz_id)
-      if not quiz:
-        task_results[task_id] = {"status": "error", "message": "Quiz not found"}
-        return
-      
-      task_results[task_id] = {
-        "status": "completed",
-        "data": quiz,
-        "message": "Quiz fetched successfully"
-      }
-  except Exception as e:
-    import traceback
-    traceback.print_exc()
-    task_results[task_id] = {"status": "error", "message": str(e)}
-
-
-async def process_search_quizzes(query: SearchQuery, task_id: str):
-  try:
-    async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
-      
-      results = await search_quizzes(
-        user_id=query.user_id,
-        is_public=query.is_public,
-        min_created_date=query.min_created_date,
-        max_created_date=query.max_created_date,
-        min_last_modified=query.min_last_modified,
-        max_last_modified=query.max_last_modified,
-        difficulty=query.difficulty,
-        categories=query.categories,
-        size=query.size,
-        start=query.start
-      )
-      
-      task_results[task_id] = {
-        "status": "completed",
-        "data": results,
-        "total": len(results),
-        "message": "Quizzes fetched successfully"
-      }
-  except Exception as e:
-    import traceback
-    traceback.print_exc()
-    task_results[task_id] = {
+    return {
       "status": "error",
       "data": [],
       "total": 0,
@@ -177,32 +105,196 @@ async def process_search_quizzes(query: SearchQuery, task_id: str):
     }
 
 
-async def process_count_quizzes(query: SearchQuery, task_id: str):
+@router.post("/count")
+async def count_quizzes_direct(query: SearchQuery):
   try:
-    async with task_semaphore:
-      task_results[task_id] = {"status": "processing"}
-      
-      count = await count_quizzes(
-        user_id=query.user_id,
-        is_public=query.is_public,
-        min_created_date=query.min_created_date,
-        max_created_date=query.max_created_date,
-        min_last_modified=query.min_last_modified,
-        max_last_modified=query.max_last_modified,
-        difficulty=query.difficulty,
-        categories=query.categories
-      )
-      
-      task_results[task_id] = {
-        "status": "completed",
-        "count": count,
-        "message": "Count completed successfully"
-      }
+    count = await count_quizzes(
+      user_id=query.user_id,
+      is_public=query.is_public,
+      min_created_date=query.min_created_date,
+      max_created_date=query.max_created_date,
+      min_last_modified=query.min_last_modified,
+      max_last_modified=query.max_last_modified,
+      difficulty=query.difficulty,
+      categories=query.categories
+    )
+    return {
+      "status": "success",
+      "count": count,
+      "message": "Count completed successfully"
+    }
   except Exception as e:
-    import traceback
-    traceback.print_exc()
-    task_results[task_id] = {
+    return {
       "status": "error",
       "count": 0,
       "message": str(e)
     }
+
+
+# @router.put("/{quiz_id}")
+# async def update_quiz_route(quiz_id: str, quiz_data: Dict, background_tasks: BackgroundTasks):
+#   task_id = str(uuid.uuid4())
+#   background_tasks.add_task(process_update_quiz, quiz_id, quiz_data, task_id)
+#   return {"task_id": task_id, "status": "processing"}
+
+
+# @router.delete("/{quiz_id}")
+# async def delete_quiz_route(quiz_id: str, background_tasks: BackgroundTasks):
+#   task_id = str(uuid.uuid4())
+#   background_tasks.add_task(process_delete_quiz, quiz_id, task_id)
+#   return {"task_id": task_id, "status": "processing"}
+
+
+# @router.get("/{quiz_id}")
+# async def get_quiz_route(quiz_id: str, background_tasks: BackgroundTasks):
+#   task_id = str(uuid.uuid4())
+#   background_tasks.add_task(process_get_quiz, quiz_id, task_id)
+#   return {"task_id": task_id, "status": "processing"}
+
+
+# @router.post("/search")
+# async def search_quizzes_route(query: SearchQuery, background_tasks: BackgroundTasks):
+#   task_id = str(uuid.uuid4())
+#   background_tasks.add_task(process_search_quizzes, query, task_id)
+#   return {"task_id": task_id, "status": "processing"}
+
+
+# @router.post("/count")
+# async def count_quizzes_route(query: SearchQuery, background_tasks: BackgroundTasks):
+#   task_id = str(uuid.uuid4())
+#   background_tasks.add_task(process_count_quizzes, query, task_id)
+#   return {"task_id": task_id, "status": "processing"}
+
+
+# async def process_update_quiz(quiz_id: str, quiz_data: Dict, task_id: str):
+#   try:
+#     async with task_semaphore:
+#       task_results[task_id] = {"status": "processing"}
+      
+#       ObjectId(quiz_id)
+      
+#       result = await update_quiz(quiz_id, quiz_data)
+#       if result.modified_count == 0:
+#         task_results[task_id] = {"status": "error", "message": "Quiz not found"}
+#         return
+      
+#       task_results[task_id] = {
+#         "status": "completed",
+#         "message": "Quiz updated successfully"
+#       }
+#   except Exception as e:
+#     import traceback
+#     traceback.print_exc()
+#     task_results[task_id] = {"status": "error", "message": str(e)}
+
+
+# async def process_delete_quiz(quiz_id: str, task_id: str):
+#   try:
+#     async with task_semaphore:
+#       task_results[task_id] = {"status": "processing"}
+      
+#       ObjectId(quiz_id)
+      
+#       result = await delete_quiz(quiz_id)
+#       if result.deleted_count == 0:
+#         task_results[task_id] = {"status": "error", "success": False, "message": "Quiz not found"}
+#         return
+      
+#       task_results[task_id] = {
+#         "status": "completed",
+#         "success": True,
+#         "message": "Quiz deleted successfully"
+#       }
+#   except Exception as e:
+#     import traceback
+#     traceback.print_exc()
+#     task_results[task_id] = {"status": "error", "success": False, "message": str(e)}
+
+
+# async def process_get_quiz(quiz_id: str, task_id: str):
+#   try:
+#     async with task_semaphore:
+#       task_results[task_id] = {"status": "processing"}
+      
+#       ObjectId(quiz_id)
+      
+#       quiz = await get_quiz(quiz_id)
+#       if not quiz:
+#         task_results[task_id] = {"status": "error", "message": "Quiz not found"}
+#         return
+      
+#       task_results[task_id] = {
+#         "status": "completed",
+#         "data": quiz,
+#         "message": "Quiz fetched successfully"
+#       }
+#   except Exception as e:
+#     import traceback
+#     traceback.print_exc()
+#     task_results[task_id] = {"status": "error", "message": str(e)}
+
+
+# async def process_search_quizzes(query: SearchQuery, task_id: str):
+#   try:
+#     async with task_semaphore:
+#       task_results[task_id] = {"status": "processing"}
+      
+#       results = await search_quizzes(
+#         user_id=query.user_id,
+#         is_public=query.is_public,
+#         min_created_date=query.min_created_date,
+#         max_created_date=query.max_created_date,
+#         min_last_modified=query.min_last_modified,
+#         max_last_modified=query.max_last_modified,
+#         difficulty=query.difficulty,
+#         categories=query.categories,
+#         size=query.size,
+#         start=query.start
+#       )
+      
+#       task_results[task_id] = {
+#         "status": "completed",
+#         "data": results,
+#         "total": len(results),
+#         "message": "Quizzes fetched successfully"
+#       }
+#   except Exception as e:
+#     import traceback
+#     traceback.print_exc()
+#     task_results[task_id] = {
+#       "status": "error",
+#       "data": [],
+#       "total": 0,
+#       "message": str(e)
+#     }
+
+
+# async def process_count_quizzes(query: SearchQuery, task_id: str):
+#   try:
+#     async with task_semaphore:
+#       task_results[task_id] = {"status": "processing"}
+      
+#       count = await count_quizzes(
+#         user_id=query.user_id,
+#         is_public=query.is_public,
+#         min_created_date=query.min_created_date,
+#         max_created_date=query.max_created_date,
+#         min_last_modified=query.min_last_modified,
+#         max_last_modified=query.max_last_modified,
+#         difficulty=query.difficulty,
+#         categories=query.categories
+#       )
+      
+#       task_results[task_id] = {
+#         "status": "completed",
+#         "count": count,
+#         "message": "Count completed successfully"
+#       }
+#   except Exception as e:
+#     import traceback
+#     traceback.print_exc()
+#     task_results[task_id] = {
+#       "status": "error",
+#       "count": 0,
+#       "message": str(e)
+#     }
