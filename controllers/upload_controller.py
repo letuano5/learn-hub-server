@@ -137,10 +137,12 @@ async def upload_document(
 
     os.remove(temp_file_path)
 
+    document = await get_document(str(result.inserted_id))
+
     return {
       "status": "success",
-      "message": "File uploaded successfully",
-      # "result": result
+      "data": document,
+      "message": "File uploaded successfully"
     }
 
   except Exception as e:
