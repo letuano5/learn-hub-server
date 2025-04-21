@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from controllers import health_controller, generator_controller, processor_controller, shared_resources
 from controllers.quizzes_controller import router as quizzes_router
+from controllers.upload_controller import router as upload_router
 
 app = FastAPI()
 
@@ -18,6 +19,7 @@ app.include_router(generator_controller.router)
 app.include_router(processor_controller.router)
 app.include_router(quizzes_router, prefix="/quiz", tags=["quiz"])
 app.include_router(shared_resources.router)
+app.include_router(upload_router)
 
 
 @app.get("/")

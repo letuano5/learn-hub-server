@@ -1,15 +1,128 @@
 from models.mongo import mongo_database
 from datetime import datetime, timezone
+from bson import ObjectId
+from typing import Optional
+import os
+from service.generators.base import upload_file
+
 
 collection = mongo_database['documents']
 
 
-async def add_document(user_id: str, is_public: bool, filename: str, file_url: str):
+async def add_document(user_id: str, is_public: bool, filename: str, file_url: str, file_size: int, file_extension: str):
   document = {
-      "user_id": user_id,
-      "is_public": is_public,
-      "filename": filename,
-      "file_url": file_url,
-      "date": datetime.now(timezone.utc)
+      'user_id': user_id,
+      'is_public': is_public,
+      'filename': filename,
+      'file_url': file_url,
+      'file_size': file_size,
+      'file_extension': file_extension,
+      'date': datetime.now(timezone.utc),
   }
   return await collection.insert_one(document)
+
+
+async def add_doc_with_link(user_id: str, is_public: bool, filename: str, file_path: str):
+  file_url = await upload_file(file_path)
+  file_size = os.path.getsize(file_path) # size in bytes
+  file_extension = os.path.splitext(file_path)[1]
+
+  filename = filename.replace(file_extension, '')
+  file_extension = file_extension.replace('.', '')
+  
+  return await add_document(
+    user_id=user_id,
+    is_public=is_public,
+    filename=filename,
+    file_url=file_url,
+    file_size=file_size,
+    file_extension=file_extension
+  )
+
+
+async def get_document(document_id: str):
+  object_id = ObjectId(document_id)
+  document = await collection.find_one({'_id': object_id})
+  
+  if document and '_id' in document:
+    document['_id'] = str(document['_id'])
+  
+  return document
+
+
+async def search_documents(
+    user_id: str,
+    is_public: bool,
+    min_date: Optional[datetime] = None,
+    max_date: Optional[datetime] = None,
+    filename: Optional[str] = None,
+    file_extension: Optional[str] = None,
+    size: Optional[int] = None,
+    start: Optional[int] = None
+):
+  query = {
+    '$or': [
+      {'user_id': user_id},
+      {'is_public': is_public}
+    ]
+  }
+
+  if min_date or max_date:
+    date_query = {}
+    if min_date:
+      date_query['$gte'] = min_date
+    if max_date:
+      date_query['$lte'] = max_date
+    query['date'] = date_query
+
+  if filename:
+    query['filename'] = {'$regex': filename, '$options': 'i'}  
+
+  if file_extension:
+    query['file_extension'] = {'$regex': f'^{file_extension}$', '$options': 'i'}
+
+  cursor = collection.find(query)
+  if start is not None:
+    cursor = cursor.skip(start)
+  if size is not None:
+    cursor = cursor.limit(size)
+
+  results = await cursor.to_list(length=size)
+
+  for doc in results:
+    if '_id' in doc:
+      doc['_id'] = str(doc['_id'])
+
+  return results
+
+
+async def count_documents(
+  user_id: str,
+  is_public: bool,
+  min_date: Optional[datetime] = None,
+  max_date: Optional[datetime] = None,
+  filename: Optional[str] = None,
+  file_extension: Optional[str] = None
+) -> int:
+  query = {
+    '$or': [
+      {'user_id': user_id},
+      {'is_public': is_public}
+    ]
+  }
+  
+  if min_date or max_date:
+    query['date'] = {}
+    if min_date:
+      query['date']['$gte'] = min_date
+    if max_date:
+      query['date']['$lte'] = max_date
+  
+  if filename:
+    query['filename'] = {'$regex': filename, '$options': 'i'}
+  
+  if file_extension:
+    query['file_extension'] = {'$regex': f'^{file_extension}$', '$options': 'i'}
+  
+  count = await collection.count_documents(query)
+  return count
