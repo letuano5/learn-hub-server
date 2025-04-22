@@ -10,3 +10,6 @@ class TextFileProcessor(DocumentProcessor):
 
   async def generate_questions(self, file_path: str, num_question: int, language: str):
     return await self.text_processor.generate_questions(self.get_text(file_path), num_question, language)
+
+  async def generate_questions_from_text(self, text: str, num_question: int, language: str):
+    return await self.text_processor.generate_questions(text, num_question, language)

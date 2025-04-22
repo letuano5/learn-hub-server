@@ -29,6 +29,7 @@ llama-index-readers-smart-pdf-loader==0.3.0
 llama-index-vector-stores-chroma==0.4.1
 llama-index-vector-stores-pinecone==0.4.5
 llama-index-vector-stores-postgres==0.4.2
+llama-index-readers-web
 motor
 catboxpy
 httpx

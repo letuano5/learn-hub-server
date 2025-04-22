@@ -5,6 +5,8 @@ from service.generators.summarizer import Summarizer
 from service.generators.doc_processor.docx import DOCXProcessor
 from service.generators.doc_processor.pdf import PDFProcessor
 from service.generators.doc_processor.text import TextFileProcessor
+from service.generators.doc_processor.img import ImageGenerator
+from service.generators.doc_processor.link_proc import LinkGenerator
 
 api_key = os.environ.get('GOOGLE_GENAI_KEY')
 
@@ -18,3 +20,5 @@ pdf_processor = PDFProcessor(text_processor, image_processor, file_processor, fi
 txt_file_processor = TextFileProcessor(
     text_processor, image_processor, file_processor)
 doc_processor = DOCXProcessor(text_processor, image_processor, file_processor)
+image_generator = ImageGenerator(image_processor)
+link_generator = LinkGenerator(text_processor)
