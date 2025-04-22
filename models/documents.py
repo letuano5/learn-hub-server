@@ -29,7 +29,7 @@ async def add_doc_with_link(user_id: str, is_public: bool, filename: str, file_p
 
   filename = filename.replace(file_extension, '')
   file_extension = file_extension.replace('.', '')
-  
+  print(f'Adding {filename} {file_extension} to MongoDB')
   return await add_document(
     user_id=user_id,
     is_public=is_public,
@@ -48,6 +48,15 @@ async def get_document(document_id: str):
     document['_id'] = str(document['_id'])
   
   return document
+
+
+async def delete_document(document_id: str):
+  try:
+    object_id = ObjectId(document_id)
+    result = await collection.delete_one({'_id': object_id})
+    return result.deleted_count > 0
+  except Exception as e:
+    raise Exception(f"Error deleting document: {str(e)}")
 
 
 async def search_documents(

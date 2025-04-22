@@ -98,7 +98,10 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
     async with task_semaphore:
       task_results[task_id] = {"status": "uploading"}
 
-      await add_doc_with_link(user_id, is_public, filename, temp_file_path)
+      insert_result = await add_doc_with_link(user_id, is_public, filename, temp_file_path)
+      document_id = str(insert_result.inserted_id)
+
+      print(f'Insert {document_id} into MongoDB')
 
       task_results[task_id] = {"status": "processing", "message": f"Processing file {filename}..."}
 
@@ -111,7 +114,9 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
       else:
         raise ValueError(f"Unsupported file type: {file_ext}")
 
-      await add_document(documents, user_id, is_public)
+      await add_document(documents, user_id, is_public, document_id, filename)
+
+      
 
       task_results[task_id] = {
           "status": "completed",

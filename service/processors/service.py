@@ -17,6 +17,8 @@ from pinecone import Pinecone
 import asyncio
 import google.generativeai as genai
 import os
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone
 
 GOOGLE_GENAI_KEY = os.environ.get('GOOGLE_GENAI_KEY')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
@@ -44,7 +46,7 @@ ingestion_cache = IngestionCache()
 
 vector_store = PineconeVectorStore(
     pinecone_index=pc.Index(PINECONE_INDEX),
-    namespace=PINECONE_NAMESPACE
+    namespace=PINECONE_NAMESPACE,
 )
 
 pipeline = IngestionPipeline(
@@ -66,6 +68,20 @@ node_parser = SentenceSplitter(
     paragraph_separator="\n\n",
     secondary_chunking_regex="[^,.;。]+[,.;。]?",
 )
+
+
+async def delete_chunks(document_id: str):
+  try:
+    index = vector_store._pinecone_index
+    
+    await asyncio.to_thread(
+        index.delete,
+        filter={"mongo_id": document_id},
+        namespace=PINECONE_NAMESPACE
+    )
+    return True
+  except Exception as e:
+    raise Exception(f"Error deleting chunks from Pinecone: {str(e)}")
 
 
 async def process_pdf_images(pdf_path: str, chunk_size: int = 10, chunk_overlap: int = 2) -> list[Document]:
@@ -184,13 +200,16 @@ async def process_text_file(file_path: str) -> list[Document]:
   return chunked_documents
 
 
-async def add_document(doc, user_id, is_public=False):
-  """Add documents to the vector store with user metadata."""
+async def add_document(doc, user_id, is_public=False, document_id=None, filename=None):
   for d in doc:
     d.metadata.update({
         "user_id": user_id,
-        "is_public": is_public
+        "is_public": is_public,
+        "mongo_id": document_id,
+        "real_name": filename
     })
+    
+    print(d.metadata)
 
   return await asyncio.to_thread(pipeline.run, documents=doc)
 
