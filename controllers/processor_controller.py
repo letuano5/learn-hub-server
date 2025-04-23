@@ -96,6 +96,9 @@ async def get_query_result(query_text: str, user_id: str, task_id):
 async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
   try:
     async with task_semaphore:
+
+      print(f'Adding document {temp_file_path} of {user_id}')
+
       task_results[task_id] = {"status": "uploading"}
 
       insert_result = await add_doc_with_link(user_id, is_public, filename, temp_file_path)

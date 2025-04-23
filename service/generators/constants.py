@@ -23,7 +23,8 @@ multiple_choice_example = {
 # default_prompt = f"""
 # """
 
-default_prompt = f"""You are an assistant specialized in generating challenging exam-style questions and answers. Your response must only be a JSON object with the following property:
+default_prompt = f"""
+You are an assistant specialized in generating challenging exam-style questions and answers. Your response must only be a JSON object with the following property:
 "questions": An array of JSON objects, where each JSON object represents a question and answer pair. The JSON object representing the question must have the following properties:
 
 {json.dumps(multiple_choice_example, indent=2)}
@@ -48,37 +49,48 @@ INSTEAD: Make questions fully self-sufficient by incorporating necessary informa
    - WRONG: "Theo sách Giáo dục công dân 8, quyền bình đẳng là gì?"
    - RIGHT: "Quyền bình đẳng trong xã hội dân chủ được định nghĩa như thế nào?"
 
-   
 3. CONTENT SELECTION:
    - IGNORE: book covers, prefaces, acknowledgments, publication info, metadata
    - ONLY use content from main instructional chapters
    - Distribute questions evenly across the document (max 10% from any section)
+   - STRICTLY FORBIDDEN: Creating questions based solely on a keyword without full context from the document
+   - VERIFY: Every question must test information explicitly stated in the document
 
 4. QUESTION FORMULATION:
    - Start directly with concepts being tested
    - Make questions stand independently without reference to source
    - Include only essential context within the question
-   - For math content, use LaTeX formatting
+   - For mathematical content: Use LaTeX formatting with double backslashes
+   - For mathematical symbols in text: Use LaTeX whenever possible
+     * CORRECT: "The area of a circle is $\\pi r^2$."
+     * INCORRECT: "The area of a circle is πr²."
    - Keep technical terms in original language
 
-5. CHALLENGING QUESTIONS:
+5. STRICT FACT-CHECKING:
+   - Each question MUST be directly verifiable from the document content
+   - Do NOT extrapolate or infer beyond what is explicitly stated
+   - Check each question against the document to verify it's directly addressed
+   - If information is ambiguous, unclear, or absent, DO NOT create a question about it
+
+6. CHALLENGING QUESTIONS:
    - Design questions requiring higher-order thinking
    - Include plausible distractors
    - Ensure options are approximately equal in length
 
-6. ANSWER ACCURACY:
+7. ANSWER ACCURACY:
    - Verify correct answer matches explanation
    - Double-check all factual information
    - Every question must be directly derivable from source content
 
-7. VALIDATION:
+8. VALIDATION:
    - Each question must pass these checks:
      * No references to source material
      * From main content (not preface, etc.)
      * Tests substantive knowledge
      * Makes sense without original document
+     * Is explicitly supported by document content
 
-8. If you encounter " character, please replace it with ''. If you encounter \ character, please replace it with \\.
+9. If you encounter " character, please replace it with ''. If you encounter \ character, please replace it with \\.
 
 **Examples of GOOD Questions (self-contained, no external references):**
 
@@ -86,14 +98,15 @@ INSTEAD: Make questions fully self-sufficient by incorporating necessary informa
 * "The chemical formula for water is H₂O, indicating that each molecule consists of two hydrogen atoms and one oxygen atom. What type of chemical bond primarily holds these atoms together within a water molecule?"
 * "A parliamentary system is a form of government in which the executive branch (government) is dependent on the direct or indirect support of the legislative branch (parliament), often expressed through a vote of confidence. In such a system, who typically serves as the head of government?"
 
-**Examples of BAD Questions (violating the rules by implying external references):**
+**Examples of BAD Questions (violating the rules by implying external references or fabricating content):**
 
 * "According to the provided diagram of the water cycle, explain the process of condensation." (Implies a "provided diagram")
 * "Based on the text, what are the main differences between 'Infrastructure' and 'Superstructure'?" (Implies a "text")
 * "As mentioned earlier, how is the superstructure of society structured?" (Uses "as mentioned earlier")
 * "Following the illustration, describe the relationship between the base and superstructure." (Implies an "illustration")
+* "The Second Law of Thermodynamics states that entropy always increases in a closed system. What is an example of this principle?" (BAD if the document only mentions "Second Law of Thermodynamics" without explaining it)
 
-All these rules are both applied to the generated questions and answers.
+All these rules apply to both the generated questions and answers.
 
 Focus on testing understanding and critical thinking while staying true to the source content."""
 

@@ -215,45 +215,68 @@ async def add_document(doc, user_id, is_public=False, document_id=None, filename
 
 
 async def query_document(query_text, user_id):
-  filters = MetadataFilters(
-    filters=[
-      MetadataFilter(key="user_id", value=user_id),
-      MetadataFilter(key="is_public", value="true")
-    ],
-    condition=FilterCondition.OR  
-  )
+  try:
+    print(f"Starting query with text: {query_text} for user: {user_id}")
+    
+    # Create filters
+    filters = MetadataFilters(
+      filters=[
+        MetadataFilter(key="user_id", value=user_id),
+        MetadataFilter(key="is_public", value="true")
+      ],
+      condition=FilterCondition.OR  
+    )
+    print(f"Created filters: {filters}")
 
-  retriever = VectorIndexRetriever(
-      index=index,
-      similarity_top_k=5,
-      filters=filters
-  )
+    # Create retriever
+    retriever = VectorIndexRetriever(
+        index=index,
+        similarity_top_k=5,
+        filters=filters
+    )
+    print("Created retriever")
 
-  qa_template = PromptTemplate(
+    # Create QA template
+    qa_template = PromptTemplate(
+        """
+      You are a helpful assistant that answers questions based ONLY on the provided context.
+      Your answers must be based exclusively on the information contained in the context.
+      If the context doesn't contain relevant information, refuse to answer.
+      Do not use any prior knowledge or external information.
+      Respond in the same language as the query.
+      We have provided context information below.
+      ---------------------
+      "{context_str}"
+      ---------------------
+      Given this information, please answer the question in the same language of the query: "{query_str}"
+      If you don't have information to answer the question, politely refuse in the same language as the query.
       """
-    You are a helpful assistant that answers questions based ONLY on the provided context.
-    Your answers must be based exclusively on the information contained in the context.
-    If the context doesn't contain relevant information, refuse to answer.
-    Do not use any prior knowledge or external information.
-    Respond in the same language as the query.
-    We have provided context information below.
-    ---------------------
-    "{context_str}"
-    ---------------------
-    Given this information, please answer the question in the same language of the query: "{query_str}"
-    If you don't have information to answer the question, politely refuse in the same language as the query.
-    """
-  )
+    )
+    print("Created QA template")
 
-  response_synthesizer = get_response_synthesizer(
-      response_mode="compact",
-      text_qa_template=qa_template
-  )
+    # Create response synthesizer
+    response_synthesizer = get_response_synthesizer(
+        response_mode="compact",
+        text_qa_template=qa_template
+    )
+    print("Created response synthesizer")
 
-  query_engine = RetrieverQueryEngine(
-      retriever=retriever,
-      response_synthesizer=response_synthesizer
-  )
+    # Create query engine
+    query_engine = RetrieverQueryEngine(
+        retriever=retriever,
+        response_synthesizer=response_synthesizer
+    )
+    print("Created query engine")
 
-  response = await asyncio.to_thread(query_engine.query, query_text)
-  return response
+    # Execute query
+    print("Executing query...")
+    response = await asyncio.to_thread(query_engine.query, query_text)
+    print(f"Query response: {response}")
+    
+    return response
+    
+  except Exception as e:
+    print(f"Error in query_document: {str(e)}")
+    import traceback
+    traceback.print_exc()
+    return f"Error: {str(e)}"
