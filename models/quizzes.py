@@ -53,8 +53,8 @@ async def get_quiz(quiz_id: str):
 
 
 async def search_quizzes(
-    user_id: str,
-    is_public: bool,
+    user_id: Optional[str] = None,
+    is_public: Optional[bool] = None,
     min_created_date: Optional[datetime] = None,
     max_created_date: Optional[datetime] = None,
     min_last_modified: Optional[datetime] = None,
@@ -64,12 +64,17 @@ async def search_quizzes(
     size: Optional[int] = None,
     start: Optional[int] = None
 ):
-  query = {
-      '$or': [
-          {'user_id': user_id},
-          {'is_public': is_public}
-      ]
-  }
+  query = {}
+  
+  # If user_id is not specified, only show public documents
+  if user_id is None:
+    query['is_public'] = True
+  else:
+    # If user_id is specified, show user's documents
+    query['user_id'] = user_id
+    # If is_public is specified, add that condition
+    if is_public is not None:
+      query['is_public'] = is_public
 
   if min_created_date or max_created_date:
     created_date_query = {}
@@ -111,8 +116,8 @@ async def search_quizzes(
 
 
 async def count_quizzes(
-  user_id: str,
-  is_public: bool,
+  user_id: Optional[str] = None,
+  is_public: Optional[bool] = None,
   min_created_date: Optional[datetime] = None,
   max_created_date: Optional[datetime] = None,
   min_last_modified: Optional[datetime] = None,
@@ -120,10 +125,17 @@ async def count_quizzes(
   difficulty: Optional[str] = None,
   categories: Optional[List[str]] = None
 ) -> int:
-  query = {
-    "user_id": user_id,
-    "is_public": is_public
-  }
+  query = {}
+  
+  # If user_id is not specified, only show public documents
+  if user_id is None:
+    query['is_public'] = True
+  else:
+    # If user_id is specified, show user's documents
+    query['user_id'] = user_id
+    # If is_public is specified, add that condition
+    if is_public is not None:
+      query['is_public'] = is_public
   
   if min_created_date or max_created_date:
     query["created_date"] = {}

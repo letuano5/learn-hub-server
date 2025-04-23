@@ -60,8 +60,8 @@ async def delete_document(document_id: str):
 
 
 async def search_documents(
-    user_id: str,
-    is_public: bool,
+    user_id: Optional[str] = None,
+    is_public: Optional[bool] = None,
     min_date: Optional[datetime] = None,
     max_date: Optional[datetime] = None,
     filename: Optional[str] = None,
@@ -69,12 +69,17 @@ async def search_documents(
     size: Optional[int] = None,
     start: Optional[int] = None
 ):
-  query = {
-    '$or': [
-      {'user_id': user_id},
-      {'is_public': is_public}
-    ]
-  }
+  query = {}
+  
+  # If user_id is not specified, only show public documents
+  if user_id is None:
+    query['is_public'] = True
+  else:
+    # If user_id is specified, show user's documents
+    query['user_id'] = user_id
+    # If is_public is specified, add that condition
+    if is_public is not None:
+      query['is_public'] = is_public
 
   if min_date or max_date:
     date_query = {}
@@ -106,19 +111,24 @@ async def search_documents(
 
 
 async def count_documents(
-  user_id: str,
-  is_public: bool,
+  user_id: Optional[str] = None,
+  is_public: Optional[bool] = None,
   min_date: Optional[datetime] = None,
   max_date: Optional[datetime] = None,
   filename: Optional[str] = None,
   file_extension: Optional[str] = None
 ) -> int:
-  query = {
-    '$or': [
-      {'user_id': user_id},
-      {'is_public': is_public}
-    ]
-  }
+  query = {}
+  
+  # If user_id is not specified, only show public documents
+  if user_id is None:
+    query['is_public'] = True
+  else:
+    # If user_id is specified, show user's documents
+    query['user_id'] = user_id
+    # If is_public is specified, add that condition
+    if is_public is not None:
+      query['is_public'] = is_public
   
   if min_date or max_date:
     query['date'] = {}

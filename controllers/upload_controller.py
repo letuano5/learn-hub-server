@@ -13,8 +13,8 @@ router = APIRouter()
 
 
 class SearchQuery(BaseModel):
-  user_id: str
-  is_public: bool
+  user_id: Optional[str] = None
+  is_public: Optional[bool] = None
   min_date: Optional[str] = None
   max_date: Optional[str] = None
   filename: Optional[str] = None

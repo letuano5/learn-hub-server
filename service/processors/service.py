@@ -155,6 +155,7 @@ async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
         text=node.text,
         metadata=node.metadata
     )
+    print('Current chunk: ', node.text)
     chunked_documents.append(doc)
 
   return chunked_documents
@@ -211,6 +212,8 @@ async def add_document(doc, user_id, is_public=False, document_id=None, filename
     
     print(d.metadata)
 
+  print(f"Adding document of {user_id}, is_public: {is_public}, document_id: {document_id}, filename: {filename}")
+
   return await asyncio.to_thread(pipeline.run, documents=doc)
 
 
@@ -234,9 +237,9 @@ async def query_document(query_text, user_id):
         similarity_top_k=5,
         filters=filters
     )
-    print("Created retriever")
+    print(f"Created retriever: {retriever}")
 
-    # Create QA template
+    # Create QA template with context logging
     qa_template = PromptTemplate(
         """
       You are a helpful assistant that answers questions based ONLY on the provided context.
@@ -252,24 +255,28 @@ async def query_document(query_text, user_id):
       If you don't have information to answer the question, politely refuse in the same language as the query.
       """
     )
-    print("Created QA template")
+    print(f"Created QA template: {qa_template}")
 
     # Create response synthesizer
     response_synthesizer = get_response_synthesizer(
         response_mode="compact",
         text_qa_template=qa_template
     )
-    print("Created response synthesizer")
+    print(f"Created response synthesizer: {response_synthesizer}")
 
     # Create query engine
     query_engine = RetrieverQueryEngine(
         retriever=retriever,
         response_synthesizer=response_synthesizer
     )
-    print("Created query engine")
+    print(f"Created query engine: {query_engine}")
 
+    # Execute query and get retrieved nodes
+    print(f"Executing query: {query_text}")
+    retrieved_nodes = await asyncio.to_thread(retriever.retrieve, query_text)
+    print(f"Retrieved nodes: {[node.text for node in retrieved_nodes]}")
+    
     # Execute query
-    print("Executing query...")
     response = await asyncio.to_thread(query_engine.query, query_text)
     print(f"Query response: {response}")
     
