@@ -93,7 +93,7 @@ async def process_text(text: str, user_id: str, is_public: bool, count: int, lan
     async with task_semaphore:
       task_results[task_id] = {"status": "processing", "progress": "Generating questions from text"}
       
-      json_obj = await txt_file_processor.generate_questions_from_text(text, count, lang)
+      json_obj = await txt_file_processor.generate_questions_from_text(text, count, lang, task_id)
 
       if len(json_obj) > 0:
         await add_quiz(json_obj, user_id, is_public)

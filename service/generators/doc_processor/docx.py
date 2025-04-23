@@ -1,5 +1,6 @@
-from service.generators.generators import DocumentProcessor
+from service.generators.generators import DocumentProcessor, TextProcessor, ImageProcessor, FileProcessor
 from llama_index.readers.file import DocxReader
+from controllers.shared_resources import task_results
 
 class DOCXProcessor(DocumentProcessor):
 
@@ -27,5 +28,28 @@ class DOCXProcessor(DocumentProcessor):
       text += doc.text + '\n'
     return text
 
-  async def generate_questions_from_text(self, docx_path: str, num_question: int, language: str):
-    return await self.text_processor.generate_questions(self.docx_to_text(docx_path), num_question, language)
+  async def generate_questions_from_text(self, file_path: str, num_question: int, language: str, task_id: str = None):
+    try:
+      if task_id:
+        task_results[task_id] = {
+          "status": "processing",
+          "progress": "Reading DOCX file"
+        }
+
+      text = self.docx_to_text(file_path)
+
+      if task_id:
+        task_results[task_id] = {
+          "status": "processing",
+          "progress": "Generating questions from text"
+        }
+
+      return await self.text_processor.generate_questions(text, num_question, language)
+
+    except Exception as e:
+      if task_id:
+        task_results[task_id] = {
+          "status": "error",
+          "message": str(e)
+        }
+      raise e

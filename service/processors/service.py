@@ -164,6 +164,8 @@ async def process_docx(file_path: str) -> list[Document]:
   reader = DocxReader()
   documents = reader.load_data(file_path)
 
+  print('Text: {}', documents[0].text)
+
   nodes = node_parser.get_nodes_from_documents(documents)
 
   chunked_documents = []

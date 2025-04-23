@@ -5,6 +5,8 @@ from google import genai
 from google.genai import types
 import asyncio
 import pathlib
+import os
+import tempfile
 
 class GenAIClient:
   def __init__(self, api_key: str, default_prompt: str = ''):
@@ -49,9 +51,36 @@ def fix_json_array(jsons):
 
 
 async def upload_file(file_path: str):
-  client = AsyncCatboxClient()
-  file_url = await client.upload(file_path)
-  return file_url
+  try:
+    file_ext = os.path.splitext(file_path)[1].lower()
+    temp_path = None
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+      temp_path = tmp.name
+      content = await asyncio.to_thread(lambda: open(file_path, 'rb').read())
+      tmp.write(content)
+    
+    if file_ext == '.doc':
+      new_path = temp_path.replace('.doc', '.ahihi1')
+      os.rename(temp_path, new_path)
+      temp_path = new_path
+    elif file_ext == '.docx':
+      new_path = temp_path.replace('.docx', '.ahihi2')
+      os.rename(temp_path, new_path)
+      temp_path = new_path
+
+    client = AsyncCatboxClient()
+    file_url = await client.upload(temp_path)
+    
+    if temp_path and os.path.exists(temp_path):
+      os.remove(temp_path)
+    
+    return file_url
+
+  except Exception as e:
+    if temp_path and os.path.exists(temp_path):
+      os.remove(temp_path)
+    raise Exception(f"Error uploading file: {str(e)}")
 
 
 # f='''
