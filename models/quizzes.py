@@ -96,7 +96,9 @@ async def search_quizzes(
     query['difficulty'] = difficulty
 
   if categories:
-    query['category'] = {'$in': categories}
+    query['categories'] = {'$in': categories}
+
+  print(query)
 
   projection = {'questions': 0}
   
@@ -155,7 +157,7 @@ async def count_quizzes(
     query["difficulty"] = difficulty
   
   if categories:
-    query["category"] = {"$in": categories}
+    query["categories"] = {"$in": categories}
   
   count = await collection.count_documents(query)
   return count
