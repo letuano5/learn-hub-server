@@ -55,7 +55,7 @@ class TextProcessor:
     chunks = splitter.get_nodes_from_documents([doc])
     return chunks
 
-  async def generate_questions(self, text: str, num_question: int, language: str):
+  async def generate_questions(self, text: str, num_question: int, language: str, difficulty: str = "medium"):
     chunks = self.chunk_document(text)
 
     print(len(chunks))
@@ -70,7 +70,8 @@ class TextProcessor:
         prompt = get_user_prompt_text(
             language,
             num_question_in_chunk + (1 if remain_question > 0 else 0),
-            chunk.text
+            chunk.text,
+            difficulty
         )
         remain_question -= 1
         tasks.append(self.generator.generate_from_text(prompt))
@@ -111,7 +112,7 @@ class TextProcessor:
 
       tasks = []
       for chunk in selected_chunks:
-        prompt = get_user_prompt_text(language, 1, chunk)
+        prompt = get_user_prompt_text(language, 1, chunk, difficulty)
         tasks.append(self.generator.generate_from_text(prompt))
 
       results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -149,7 +150,7 @@ class ImageProcessor:
 
     return chunks
 
-  async def generate_questions(self, images, num_question: int, language: str):
+  async def generate_questions(self, images, num_question: int, language: str, difficulty: str = "medium"):
     image_segments = self.generate_chunks(images)
 
     print('Generating', len(image_segments), num_question)
@@ -162,7 +163,10 @@ class ImageProcessor:
 
       for images in image_segments:
         prompt = get_user_prompt_images(
-            language, num_question_in_chunk + (1 if remain_question > 0 else 0))
+            language, 
+            num_question_in_chunk + (1 if remain_question > 0 else 0),
+            difficulty
+        )
         remain_question -= 1
         tasks.append(
             self.generator.generate_from_base64_images(prompt, images))
@@ -197,7 +201,7 @@ class ImageProcessor:
 
       print('Summarized text:', text)
 
-      return fix_json_array(await self.text_processor.generate_questions(text, num_question, language))
+      return fix_json_array(await self.text_processor.generate_questions(text, num_question, language, difficulty))
 
 
 # Generate questions with file, just support PDF
@@ -205,8 +209,8 @@ class FileProcessor:
   def __init__(self, generator: QuestionGenerator):
     self.generator = generator
 
-  async def generate_questions(self, genai_link, num_question: int, language: str):
-    prompt = get_user_prompt_file(lang=language, count=num_question)
+  async def generate_questions(self, genai_link, num_question: int, language: str, difficulty: str = "medium"):
+    prompt = get_user_prompt_file(lang=language, count=num_question, difficulty=difficulty)
     return fix_json_array([await self.generator.generate_from_genai_link(prompt, genai_link)])
 
 

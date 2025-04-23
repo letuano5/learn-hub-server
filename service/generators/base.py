@@ -25,7 +25,8 @@ class FileUploader(GenAIClient):
 # TODO: Update when error occurred to another chars (" for example)
 
 def load_json(json_string):
-  return json.loads(json_string.replace('\\', '\\\\'))
+  return json.loads(json_string)
+  # return json.loads(json_string.replace('\\', '\\\\'))
 
 
 def fix_json_array(jsons):

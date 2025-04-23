@@ -17,7 +17,7 @@ class LinkGenerator(DocumentProcessor):
     except Exception as e:
       raise Exception(f"Error fetching web page content: {str(e)}")
 
-  async def generate_questions(self, url: str, num_question: int, language: str, task_id: str = None):
+  async def generate_questions(self, url: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     try:
       if task_id:
         task_results[task_id] = {
@@ -33,7 +33,7 @@ class LinkGenerator(DocumentProcessor):
           "progress": "Generating questions from web content"
         }
 
-      questions = await self.text_processor.generate_questions(text, num_question, language)
+      questions = await self.text_processor.generate_questions(text, num_question, language, difficulty)
 
       if task_id:
         task_results[task_id] = {

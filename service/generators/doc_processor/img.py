@@ -40,7 +40,7 @@ class ImageGenerator(DocumentProcessor):
         }
       raise e
 
-  async def generate_questions(self, img_path: str, num_question: int, language: str, task_id: str = None):
+  async def generate_questions(self, img_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     try:
       if task_id:
         task_results[task_id] = {
@@ -58,7 +58,7 @@ class ImageGenerator(DocumentProcessor):
         }
 
       # Generate questions using the image processor
-      questions = await self.image_processor.generate_questions([base64_image], num_question, language)
+      questions = await self.image_processor.generate_questions([base64_image], num_question, language, difficulty)
 
       if task_id:
         task_results[task_id] = {

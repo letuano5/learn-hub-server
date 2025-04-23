@@ -71,13 +71,10 @@ async def search_documents(
 ):
   query = {}
   
-  # If user_id is not specified, only show public documents
   if user_id is None:
     query['is_public'] = True
   else:
-    # If user_id is specified, show user's documents
     query['user_id'] = user_id
-    # If is_public is specified, add that condition
     if is_public is not None:
       query['is_public'] = is_public
 
@@ -120,13 +117,10 @@ async def count_documents(
 ) -> int:
   query = {}
   
-  # If user_id is not specified, only show public documents
   if user_id is None:
     query['is_public'] = True
   else:
-    # If user_id is specified, show user's documents
     query['user_id'] = user_id
-    # If is_public is specified, add that condition
     if is_public is not None:
       query['is_public'] = is_public
   

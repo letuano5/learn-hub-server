@@ -53,7 +53,7 @@ class PDFProcessor(DocumentProcessor):
         text += page.get_text()
     return text
 
-  async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None):
+  async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     with fitz.open(pdf_path) as doc:
       total_pages = len(doc)
       if total_pages > 300:
@@ -64,18 +64,18 @@ class PDFProcessor(DocumentProcessor):
       task_results[task_id] = {"status": "processing",
                                "progress": f"Generating questions from {pdf_path}"}
     genai_link = await self.file_uploader.upload_pdf(pdf_path)
-    return await self.file_processor.generate_questions(genai_link, num_question, language)
+    return await self.file_processor.generate_questions(genai_link, num_question, language, difficulty)
 
-  async def generate_questions_from_images(self, pdf_path: str, num_question: int, language: str, task_id: str = None):
+  async def generate_questions_from_images(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     base64_pages = await asyncio.to_thread(self.pdf_to_base64, pdf_path, task_id)
     if task_id:
       task_results[task_id] = {"status": "processing",
                                "progress": "Generating questions from images"}
-    return await self.image_processor.generate_questions(base64_pages, num_question, language)
+    return await self.image_processor.generate_questions(base64_pages, num_question, language, difficulty)
 
-  async def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str, task_id: str = None):
+  async def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     text = await asyncio.to_thread(self.pdf_to_text, pdf_path, task_id)
     if task_id:
       task_results[task_id] = {"status": "processing",
                                "progress": "Generating questions from text"}
-    return await self.text_processor.generate_questions(text, num_question, language)
+    return await self.text_processor.generate_questions(text, num_question, language, difficulty)

@@ -28,7 +28,7 @@ class DOCXProcessor(DocumentProcessor):
       text += doc.text + '\n'
     return text
 
-  async def generate_questions_from_text(self, file_path: str, num_question: int, language: str, task_id: str = None):
+  async def generate_questions_from_text(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     try:
       if task_id:
         task_results[task_id] = {
@@ -44,7 +44,7 @@ class DOCXProcessor(DocumentProcessor):
           "progress": "Generating questions from text"
         }
 
-      return await self.text_processor.generate_questions(text, num_question, language)
+      return await self.text_processor.generate_questions(text, num_question, language, difficulty)
 
     except Exception as e:
       if task_id:

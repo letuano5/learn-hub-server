@@ -12,6 +12,7 @@ import uuid
 
 router = APIRouter()
 
+
 @router.post("/add")
 async def add_doc(file: UploadFile, user_id: str, is_public: bool, background_tasks: BackgroundTasks, mode: str = "text"):
   filename = file.filename
@@ -106,7 +107,8 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
 
       print(f'Insert {document_id} into MongoDB')
 
-      task_results[task_id] = {"status": "processing", "message": f"Processing file {filename}..."}
+      task_results[task_id] = {"status": "processing",
+                               "message": f"Processing file {filename}..."}
 
       if file_ext == '.pdf':
         documents = await process_pdf(temp_file_path, mode)
@@ -118,8 +120,6 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
         raise ValueError(f"Unsupported file type: {file_ext}")
 
       await add_document(documents, user_id, is_public, document_id, filename)
-
-      
 
       task_results[task_id] = {
           "status": "completed",

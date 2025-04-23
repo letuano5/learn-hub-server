@@ -76,6 +76,10 @@ INSTEAD: Make questions fully self-sufficient by incorporating necessary informa
    - Design questions requiring higher-order thinking
    - Include plausible distractors
    - Ensure options are approximately equal in length
+   - Set appropriate difficulty levels:
+     * EASY: Basic recall and understanding
+     * MEDIUM: Application and analysis
+     * HARD: Evaluation and synthesis
 
 7. ANSWER ACCURACY:
    - Verify correct answer matches explanation
@@ -111,9 +115,9 @@ All these rules apply to both the generated questions and answers.
 Focus on testing understanding and critical thinking while staying true to the source content."""
 
 
-def get_user_prompt_text(lang: str, count: int, text: str):
+def get_user_prompt_text(lang: str, count: int, text: str, difficulty: str = "medium"):
   return default_prompt + '\n' + f"""
-Now generate {count} insightful question based on the following content that tests understanding of key concepts or important details:
+Now generate {count} insightful questions based on the following content that tests understanding of key concepts or important details. The questions should be of {difficulty} difficulty level:
 
 <Begin Document>
 "{text}"
@@ -123,15 +127,14 @@ The generated questions and answers must be in {lang}. However, your response mu
 """
 
 
-def get_user_prompt_images(lang: str, count: int):
+def get_user_prompt_images(lang: str, count: int, difficulty: str = "medium"):
   return default_prompt + '\n' + f"""
-Now read carefully the contents written on these images, then generate {count} insightful question that tests understanding of key concepts or important details.
+Now read carefully the contents written on these images, then generate {count} insightful questions that tests understanding of key concepts or important details. The questions should be of {difficulty} difficulty level.
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
 """
 
-def get_user_prompt_file(lang: str, count: int):
+def get_user_prompt_file(lang: str, count: int, difficulty: str = "medium"):
   return default_prompt + '\n' + f"""
-
-Now read carefully the contents written on this document, then generate {count} insightful question that tests understanding of key concepts or important details.
+Now read carefully the contents written on this document, then generate {count} insightful questions that tests understanding of key concepts or important details. The questions should be of {difficulty} difficulty level.
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
 """

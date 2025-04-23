@@ -1,5 +1,5 @@
 import os
-from service.generators.base import FileUploader
+from service.generators.base import FileUploader, GenAIClient
 from service.generators.generators import default_prompt, QuestionGenerator, TextProcessor, ImageProcessor, FileProcessor
 from service.generators.summarizer import Summarizer
 from service.generators.doc_processor.docx import DOCXProcessor
@@ -22,3 +22,4 @@ txt_file_processor = TextFileProcessor(
 doc_processor = DOCXProcessor(text_processor, image_processor, file_processor)
 image_generator = ImageGenerator(image_processor)
 link_generator = LinkGenerator(text_processor)
+category_client = GenAIClient(api_key=api_key)

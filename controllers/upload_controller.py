@@ -41,28 +41,28 @@ class SearchQuery(BaseModel):
 async def search_documents_route(query: SearchQuery):
   try:
     results = await search_documents(
-      user_id=query.user_id,
-      is_public=query.is_public,
-      min_date=query.min_date,
-      max_date=query.max_date,
-      filename=query.filename,
-      file_extension=query.file_extension,
-      size=query.size,
-      start=query.start
+        user_id=query.user_id,
+        is_public=query.is_public,
+        min_date=query.min_date,
+        max_date=query.max_date,
+        filename=query.filename,
+        file_extension=query.file_extension,
+        size=query.size,
+        start=query.start
     )
-    
+
     return {
-      "status": "success",
-      "data": results,
-      "total": len(results),
-      "message": "Documents fetched successfully"
+        "status": "success",
+        "data": results,
+        "total": len(results),
+        "message": "Documents fetched successfully"
     }
   except Exception as e:
     return {
-      "status": "error",
-      "data": [],
-      "total": 0,
-      "message": str(e)
+        "status": "error",
+        "data": [],
+        "total": 0,
+        "message": str(e)
     }
 
 
@@ -70,24 +70,24 @@ async def search_documents_route(query: SearchQuery):
 async def count_documents_route(query: SearchQuery):
   try:
     total = await count_documents(
-      user_id=query.user_id,
-      is_public=query.is_public,
-      min_date=query.min_date,
-      max_date=query.max_date,
-      filename=query.filename,
-      file_extension=query.file_extension
+        user_id=query.user_id,
+        is_public=query.is_public,
+        min_date=query.min_date,
+        max_date=query.max_date,
+        filename=query.filename,
+        file_extension=query.file_extension
     )
-    
+
     return {
-      "status": "success",
-      "count": total,
-      "message": "Count fetched successfully"
+        "status": "success",
+        "count": total,
+        "message": "Count fetched successfully"
     }
   except Exception as e:
     return {
-      "status": "error",
-      "count": 0,
-      "message": str(e)
+        "status": "error",
+        "count": 0,
+        "message": str(e)
     }
 
 
@@ -97,21 +97,21 @@ async def get_document_route(document_id: str):
     document = await get_document(document_id)
     if not document:
       return {
-        "status": "error",
-        "data": {},
-        "message": "Document not found"
+          "status": "error",
+          "data": {},
+          "message": "Document not found"
       }
-    
+
     return {
-      "status": "success",
-      "data": document,
-      "message": "Document fetched successfully"
+        "status": "success",
+        "data": document,
+        "message": "Document fetched successfully"
     }
   except Exception as e:
     return {
-      "status": "error",
-      "data": {},
-      "message": str(e)
+        "status": "error",
+        "data": {},
+        "message": str(e)
     }
 
 
@@ -120,24 +120,24 @@ async def delete_document_route(document_id: str):
   try:
     # First delete the chunks
     await delete_chunks(document_id)
-    
+
     # Then delete the document
     success = await delete_document(document_id)
-    
+
     if not success:
       return {
-        "status": "error",
-        "message": "Document not found"
+          "status": "error",
+          "message": "Document not found"
       }
-    
+
     return {
-      "status": "success",
-      "message": "Document and its chunks deleted successfully"
+        "status": "success",
+        "message": "Document and its chunks deleted successfully"
     }
   except Exception as e:
     return {
-      "status": "error",
-      "message": str(e)
+        "status": "error",
+        "message": str(e)
     }
 
 
@@ -147,28 +147,28 @@ async def reprocess_to_pinecone(document_id: str):
     document = await get_document(document_id)
     if not document:
       return {
-        "status": "error",
-        "message": "Document not found"
+          "status": "error",
+          "message": "Document not found"
       }
 
     headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
     }
 
     async with httpx.AsyncClient(
-      timeout=httpx.Timeout(300.0),  
-      follow_redirects=True
+        timeout=httpx.Timeout(300.0),
+        follow_redirects=True
     ) as client:
       print(f'Downloading file from url={document["file_url"]}')
       print(headers)
-      
+
       async with client.stream('GET', document['file_url'], headers=headers) as response:
         if response.status_code != 200:
           return {
-            "status": "error",
-            "message": "Failed to download file from URL"
+              "status": "error",
+              "message": "Failed to download file from URL"
           }
-        
+
         file_ext = document['file_extension']
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
           temp_file_path = tmp.name
@@ -192,18 +192,18 @@ async def reprocess_to_pinecone(document_id: str):
       print('Processing successfully')
 
       await add_document(
-        documents, 
-        document['user_id'], 
-        document['is_public'], 
-        document_id, 
-        document['filename']
+          documents,
+          document['user_id'],
+          document['is_public'],
+          document_id,
+          document['filename']
       )
 
       print('Adding to Pinecone')
 
       return {
-        "status": "success",
-        "message": f"Successfully reprocessed {len(documents)} documents into Pinecone"
+          "status": "success",
+          "message": f"Successfully reprocessed {len(documents)} documents into Pinecone"
       }
 
     finally:
@@ -212,8 +212,8 @@ async def reprocess_to_pinecone(document_id: str):
 
   except Exception as e:
     return {
-      "status": "error",
-      "message": str(e)
+        "status": "error",
+        "message": str(e)
     }
 
 
@@ -233,10 +233,10 @@ async def upload_document(
       tmp.write(content)
 
     result = await add_doc_with_link(
-      user_id=user_id,
-      is_public=is_public,
-      filename=file.filename,
-      file_path=temp_file_path,
+        user_id=user_id,
+        is_public=is_public,
+        filename=file.filename,
+        file_path=temp_file_path,
     )
 
     os.remove(temp_file_path)
@@ -244,16 +244,16 @@ async def upload_document(
     document = await get_document(str(result.inserted_id))
 
     return {
-      "status": "success",
-      "data": document,
-      "message": "File uploaded successfully"
+        "status": "success",
+        "data": document,
+        "message": "File uploaded successfully"
     }
 
   except Exception as e:
     if os.path.exists(temp_file_path):
       os.remove(temp_file_path)
-    
+
     return {
-      "status": "error",
-      "message": str(e)
-    } 
+        "status": "error",
+        "message": str(e)
+    }
