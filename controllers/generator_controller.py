@@ -115,6 +115,7 @@ async def process_link(link: str, user_id: str, is_public: bool, count: int, lan
 
         json_obj["categories"] = selected_categories
         json_obj["title"] = title
+        json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
         task_results[task_id] = {"status": "completed", "result": json_obj}
@@ -142,6 +143,7 @@ async def process_text(text: str, user_id: str, is_public: bool, count: int, lan
 
         json_obj["categories"] = selected_categories
         json_obj["title"] = title
+        json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
         task_results[task_id] = {"status": "completed", "result": json_obj}
@@ -181,6 +183,7 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang
 
         json_obj["categories"] = selected_categories
         json_obj["title"] = title
+        json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
         task_results[task_id] = {"status": "completed", "result": json_obj}

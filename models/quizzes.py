@@ -14,7 +14,6 @@ async def add_quiz(quiz, user_id: str, is_public: bool = True):
       'created_date': datetime.now(timezone.utc),
       'last_modified_date': datetime.now(timezone.utc),
       'num_question': len(quiz_with_info.get('questions', [])),
-      'difficulty': 'N/A',
       'category': ['N/A']
   })
   return await collection.insert_one(quiz_with_info)
