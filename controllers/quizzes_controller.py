@@ -21,6 +21,7 @@ class SearchQuery(BaseModel):
   categories: Optional[List[str]] = None
   size: Optional[int] = None
   start: Optional[int] = None
+  title: Optional[str] = None
 
   @validator('min_created_date', 'max_created_date', 'min_last_modified', 'max_last_modified')
   def parse_date(cls, v):
@@ -90,7 +91,8 @@ async def search_quizzes_direct(query: SearchQuery):
         difficulty=query.difficulty,
         categories=query.categories,
         size=query.size,
-        start=query.start
+        start=query.start,
+        title=query.title
     )
     return {
         "status": "success",
@@ -118,7 +120,8 @@ async def count_quizzes_direct(query: SearchQuery):
         min_last_modified=query.min_last_modified,
         max_last_modified=query.max_last_modified,
         difficulty=query.difficulty,
-        categories=query.categories
+        categories=query.categories,
+        title=query.title
     )
     return {
         "status": "success",

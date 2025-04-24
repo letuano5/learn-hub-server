@@ -13,8 +13,7 @@ async def add_quiz(quiz, user_id: str, is_public: bool = True):
       'is_public': is_public,
       'created_date': datetime.now(timezone.utc),
       'last_modified_date': datetime.now(timezone.utc),
-      'num_question': len(quiz_with_info.get('questions', [])),
-      'category': ['N/A']
+      'num_question': len(quiz_with_info.get('questions', []))
   })
   return await collection.insert_one(quiz_with_info)
 
@@ -61,7 +60,8 @@ async def search_quizzes(
     difficulty: Optional[str] = None,
     categories: Optional[List[str]] = None,
     size: Optional[int] = None,
-    start: Optional[int] = None
+    start: Optional[int] = None,
+    title: Optional[str] = None
 ):
   query = {}
   
@@ -97,6 +97,9 @@ async def search_quizzes(
   if categories:
     query['categories'] = {'$in': categories}
 
+  if title:
+    query['title'] = {"$regex": title, "$options": "i"}  # Case-insensitive search
+
   print(query)
 
   projection = {'questions': 0}
@@ -124,7 +127,8 @@ async def count_quizzes(
   min_last_modified: Optional[datetime] = None,
   max_last_modified: Optional[datetime] = None,
   difficulty: Optional[str] = None,
-  categories: Optional[List[str]] = None
+  categories: Optional[List[str]] = None,
+  title: Optional[str] = None
 ) -> int:
   query = {}
   
@@ -157,6 +161,9 @@ async def count_quizzes(
   
   if categories:
     query["categories"] = {"$in": categories}
+  
+  if title:
+    query["title"] = {"$regex": title, "$options": "i"}  # Case-insensitive search
   
   count = await collection.count_documents(query)
   return count
