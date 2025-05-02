@@ -43,11 +43,12 @@ async def delete_quiz(quiz_id: str):
 async def get_quiz(quiz_id: str):
   object_id = ObjectId(quiz_id)
   quiz = await collection.find_one({'_id': object_id})
-  
+
   if quiz and '_id' in quiz:
     quiz['_id'] = str(quiz['_id'])
-  
+
   return quiz
+
 
 async def search_quizzes(
     user_id: Optional[str] = None,
@@ -65,7 +66,7 @@ async def search_quizzes(
     sort_order: Optional[int] = None
 ):
   query = {}
-  
+
   if user_id is None:
     query['is_public'] = True
   else:
@@ -96,10 +97,10 @@ async def search_quizzes(
     query['categories'] = {'$in': categories}
 
   if title:
-    query['title'] = {"$regex": title, "$options": "i"} 
+    query['title'] = {"$regex": title, "$options": "i"}
 
   projection = {'questions': 0}
-  
+
   cursor = collection.find(query, projection)
   if sort_by is not None and sort_order is not None:
     sort_dict = {sort_by: sort_order}
@@ -118,86 +119,48 @@ async def search_quizzes(
   return results
 
 
-# async def search_quizzes(
-#     user_id: str,
-#     page: int,
-#     limit: int,
-#     categories: list,
-#     difficulty: str,
-#     title: str = None,
-#     sort_by: Optional[str] = None,
-#     sort_order: Optional[int] = None
-# ):
-#     skip = (page - 1) * limit
-#     query = {"user_id": user_id}
-#     if categories:
-#         query["categories"] = {"$in": categories}
-#     if difficulty:
-#         query["difficulty"] = difficulty
-#     if title:
-#         query["title"] = {"$regex": title, "$options": "i"}
-
-#     cursor = collection.find(query)
-    
-#     if sort_by is not None and sort_order is not None:
-#         sort_dict = {sort_by: sort_order}
-#         cursor = cursor.sort(sort_dict)
-    
-#     cursor = cursor.skip(skip).limit(limit)
-#     quizzes = await cursor.to_list(length=limit)
-    
-#     for quiz in quizzes:
-#         if '_id' in quiz:
-#             quiz['_id'] = str(quiz['_id'])
-    
-#     return quizzes
-
-
 async def count_quizzes(
-  user_id: Optional[str] = None,
-  is_public: Optional[bool] = None,
-  min_created_date: Optional[datetime] = None,
-  max_created_date: Optional[datetime] = None,
-  min_last_modified: Optional[datetime] = None,
-  max_last_modified: Optional[datetime] = None,
-  difficulty: Optional[str] = None,
-  categories: Optional[List[str]] = None,
-  title: Optional[str] = None
+    user_id: Optional[str] = None,
+    is_public: Optional[bool] = None,
+    min_created_date: Optional[datetime] = None,
+    max_created_date: Optional[datetime] = None,
+    min_last_modified: Optional[datetime] = None,
+    max_last_modified: Optional[datetime] = None,
+    difficulty: Optional[str] = None,
+    categories: Optional[List[str]] = None,
+    title: Optional[str] = None
 ) -> int:
   query = {}
-  
-  # If user_id is not specified, only show public documents
+
   if user_id is None:
     query['is_public'] = True
   else:
-    # If user_id is specified, show user's documents
     query['user_id'] = user_id
-    # If is_public is specified, add that condition
     if is_public is not None:
       query['is_public'] = is_public
-  
+
   if min_created_date or max_created_date:
     query["created_date"] = {}
     if min_created_date:
       query["created_date"]["$gte"] = min_created_date
     if max_created_date:
       query["created_date"]["$lte"] = max_created_date
-  
+
   if min_last_modified or max_last_modified:
     query["last_modified_date"] = {}
     if min_last_modified:
       query["last_modified_date"]["$gte"] = min_last_modified
     if max_last_modified:
       query["last_modified_date"]["$lte"] = max_last_modified
-  
+
   if difficulty:
     query["difficulty"] = difficulty
-  
+
   if categories:
     query["categories"] = {"$in": categories}
-  
+
   if title:
-    query["title"] = {"$regex": title, "$options": "i"}  # Case-insensitive search
-  
+    query["title"] = {"$regex": title, "$options": "i"}
+
   count = await collection.count_documents(query)
   return count

@@ -16,7 +16,8 @@ summarizer = Summarizer(api_key=api_key)
 text_processor = TextProcessor(generator)
 image_processor = ImageProcessor(generator, summarizer, text_processor)
 file_processor = FileProcessor(generator)
-pdf_processor = PDFProcessor(text_processor, image_processor, file_processor, file_uploader)
+pdf_processor = PDFProcessor(
+    text_processor, image_processor, file_processor, file_uploader)
 txt_file_processor = TextFileProcessor(
     text_processor, image_processor, file_processor)
 doc_processor = DOCXProcessor(text_processor, image_processor, file_processor)

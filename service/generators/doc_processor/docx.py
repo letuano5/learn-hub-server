@@ -2,12 +2,13 @@ from service.generators.generators import DocumentProcessor, TextProcessor, Imag
 from llama_index.readers.file import DocxReader
 from controllers.shared_resources import task_results
 
+
 class DOCXProcessor(DocumentProcessor):
 
   # def docx_to_base64_images(self, docx_path):
   #   # Extract all content including images
   #   extracted = docx2python(docx_path)
-    
+
   #   # Get images
   #   base64_images = []
   #   print(extracted, extracted.images)
@@ -18,7 +19,7 @@ class DOCXProcessor(DocumentProcessor):
   #     image_bytes = extracted.images[image_data]
   #     base64_encoded = base64.b64encode(image_bytes).decode('utf-8')
   #     base64_images.append(base64_encoded)
-    
+
   #   return base64_images
   def docx_to_text(self, docx_path: str):
     docx_reader = DocxReader()
@@ -32,16 +33,16 @@ class DOCXProcessor(DocumentProcessor):
     try:
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Reading DOCX file"
+            "status": "processing",
+            "progress": "Reading DOCX file"
         }
 
       text = self.docx_to_text(file_path)
 
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Generating questions from text"
+            "status": "processing",
+            "progress": "Generating questions from text"
         }
 
       return await self.text_processor.generate_questions(text, num_question, language, difficulty)
@@ -49,7 +50,7 @@ class DOCXProcessor(DocumentProcessor):
     except Exception as e:
       if task_id:
         task_results[task_id] = {
-          "status": "error",
-          "message": str(e)
+            "status": "error",
+            "message": str(e)
         }
       raise e

@@ -21,24 +21,24 @@ class LinkGenerator(DocumentProcessor):
     try:
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Fetching web page content"
+            "status": "processing",
+            "progress": "Fetching web page content"
         }
 
       text = self.get_text(url)
 
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Generating questions from web content"
+            "status": "processing",
+            "progress": "Generating questions from web content"
         }
 
       questions = await self.text_processor.generate_questions(text, num_question, language, difficulty)
 
       if task_id:
         task_results[task_id] = {
-          "status": "completed",
-          "message": "Questions generated successfully"
+            "status": "completed",
+            "message": "Questions generated successfully"
         }
 
       return questions
@@ -46,7 +46,7 @@ class LinkGenerator(DocumentProcessor):
     except Exception as e:
       if task_id:
         task_results[task_id] = {
-          "status": "error",
-          "message": str(e)
+            "status": "error",
+            "message": str(e)
         }
-      raise e 
+      raise e

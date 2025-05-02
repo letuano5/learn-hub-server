@@ -73,7 +73,7 @@ node_parser = SentenceSplitter(
 async def delete_chunks(document_id: str):
   try:
     index = vector_store._pinecone_index
-    
+
     await asyncio.to_thread(
         index.delete,
         filter={"mongo_id": document_id},
@@ -209,10 +209,11 @@ async def add_document(doc, user_id, is_public=False, document_id=None, filename
         "mongo_id": document_id,
         "real_name": filename
     })
-    
+
     print(d.metadata)
 
-  print(f"Adding document of {user_id}, is_public: {is_public}, document_id: {document_id}, filename: {filename}")
+  print(
+      f"Adding document of {user_id}, is_public: {is_public}, document_id: {document_id}, filename: {filename}")
 
   return await asyncio.to_thread(pipeline.run, documents=doc)
 
@@ -220,14 +221,14 @@ async def add_document(doc, user_id, is_public=False, document_id=None, filename
 async def query_document(query_text, user_id):
   try:
     print(f"Starting query with text: {query_text} for user: {user_id}")
-    
+
     # Create filters
     filters = MetadataFilters(
-      filters=[
-        MetadataFilter(key="user_id", value=user_id),
-        MetadataFilter(key="is_public", value="true")
-      ],
-      condition=FilterCondition.OR  
+        filters=[
+            MetadataFilter(key="user_id", value=user_id),
+            MetadataFilter(key="is_public", value="true")
+        ],
+        condition=FilterCondition.OR
     )
     print(f"Created filters: {filters}")
 
@@ -275,13 +276,13 @@ async def query_document(query_text, user_id):
     print(f"Executing query: {query_text}")
     retrieved_nodes = await asyncio.to_thread(retriever.retrieve, query_text)
     print(f"Retrieved nodes: {[node.text for node in retrieved_nodes]}")
-    
+
     # Execute query
     response = await asyncio.to_thread(query_engine.query, query_text)
     print(f"Query response: {response}")
-    
+
     return response
-    
+
   except Exception as e:
     print(f"Error in query_document: {str(e)}")
     import traceback

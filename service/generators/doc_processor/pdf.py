@@ -32,7 +32,7 @@ class PDFProcessor(DocumentProcessor):
         pix = page.get_pixmap()
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-        buffer = io.BytesIO() 
+        buffer = io.BytesIO()
         img.save(buffer, format="PNG")
         pages.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
         # print(page_number, ':', len(pages[-1]))
@@ -58,7 +58,8 @@ class PDFProcessor(DocumentProcessor):
       total_pages = len(doc)
       if total_pages > 300:
         if task_id:
-          task_results[task_id] = {"status": "failed", "progress": f"PDF with {total_pages} exceeds our limit"}
+          task_results[task_id] = {
+              "status": "failed", "progress": f"PDF with {total_pages} exceeds our limit"}
         return {}
     if task_id:
       task_results[task_id] = {"status": "processing",

@@ -8,6 +8,7 @@ import pathlib
 import os
 import tempfile
 
+
 class GenAIClient:
   def __init__(self, api_key: str, default_prompt: str = ''):
     old_genai.configure(api_key=api_key)
@@ -18,11 +19,13 @@ class GenAIClient:
     else:
       self.model = old_genai.GenerativeModel('gemini-2.0-flash')
 
+
 class FileUploader(GenAIClient):
   async def upload_pdf(self, pdf_path: str):
     return await asyncio.to_thread(old_genai.upload_file, pdf_path)
 
 # TODO: Update when error occurred to another chars (" for example)
+
 
 def load_json(json_string):
   return json.loads(json_string)
@@ -55,12 +58,12 @@ async def upload_file(file_path: str):
   try:
     file_ext = os.path.splitext(file_path)[1].lower()
     temp_path = None
-    
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
       temp_path = tmp.name
       content = await asyncio.to_thread(lambda: open(file_path, 'rb').read())
       tmp.write(content)
-    
+
     if file_ext == '.doc':
       new_path = temp_path.replace('.doc', '.ahihi1')
       os.rename(temp_path, new_path)
@@ -72,10 +75,10 @@ async def upload_file(file_path: str):
 
     client = AsyncCatboxClient()
     file_url = await client.upload(temp_path)
-    
+
     if temp_path and os.path.exists(temp_path):
       os.remove(temp_path)
-    
+
     return file_url
 
   except Exception as e:
@@ -126,7 +129,7 @@ async def upload_file(file_path: str):
 #       "explanation": "Tấm gương Niu-tơn cho thấy sự cần cù, sáng tạo được thể hiện qua việc dành nhiều thời gian cho đọc sách, quên ăn, quên ngủ để tạo ra các công trình khoa học. Điều này thể hiện sự đam mê, tập trung và nỗ lực không ngừng."
 #     },
 #     {
-#       "question": "Theo Luật Phòng, chống bạo lực gia đình năm 2007 (sửa đổi, bổ sung năm 2022), hành vi nào sau đây được xem là hành vi bạo lực gia đình?",   
+#       "question": "Theo Luật Phòng, chống bạo lực gia đình năm 2007 (sửa đổi, bổ sung năm 2022), hành vi nào sau đây được xem là hành vi bạo lực gia đình?",
 #       "options": [
 #         "Hạn chế việc giao tiếp của thành viên gia đình với xã hội bên ngoài.",
 #         "Lãng mạ, chì chiết hoặc hành vi cố ý xúc phạm danh dự, nhân phẩm.",
@@ -223,7 +226,7 @@ async def upload_file(file_path: str):
 #     {
 #       "question": "Theo Luật Phòng cháy và chữa cháy năm 2001 (sửa đổi, bổ sung 2013), trách nhiệm của mỗi cá nhân trong công tác phòng cháy chữa cháy là gì?",
 #       "options": [
-#         "Tự giác tìm hiểu, nâng cao nhận thức và thực hiện nghiêm các quy định của pháp luật về phòng ngừa tai nạn vũ khí, cháy, nổ và các chất độc hại.",     
+#         "Tự giác tìm hiểu, nâng cao nhận thức và thực hiện nghiêm các quy định của pháp luật về phòng ngừa tai nạn vũ khí, cháy, nổ và các chất độc hại.",
 #         "Chỉ cần biết vị trí các bình chữa cháy trong nhà.",
 #         "Chỉ cần tham gia diễn tập phòng cháy chữa cháy do cơ quan tổ chức.",
 #         "Chỉ cần báo cáo cho cơ quan chức năng khi có cháy xảy ra."
@@ -231,7 +234,7 @@ async def upload_file(file_path: str):
 #       "answer": 0,
 #       "explanation": "Theo Luật Phòng cháy và chữa cháy, mỗi cá nhân có trách nhiệm tự giác tìm hiểu, nâng cao nhận thức và thực hiện nghiêm các quy định của pháp luật về phòng ngừa tai nạn vũ khí, cháy, nổ và các chất độc hại. Đây là trách nhiệm quan trọng để bảo vệ bản thân và cộng đồng.",
 #       "options": [
-#         "Tự giác tìm hiểu, nâng cao nhận thức và thực hiện nghiêm các quy định của pháp luật về phòng ngừa tai nạn vũ khí, cháy, nổ và các chất độc hại.",     
+#         "Tự giác tìm hiểu, nâng cao nhận thức và thực hiện nghiêm các quy định của pháp luật về phòng ngừa tai nạn vũ khí, cháy, nổ và các chất độc hại.",
 #         "Chỉ cần biết vị trí các bình chữa cháy trong nhà.",
 #         "Chỉ cần tham gia diễn tập phòng cháy chữa cháy do cơ quan tổ chức.",
 #         "Chỉ cần báo cáo cho cơ quan chức năng khi có cháy xảy ra."

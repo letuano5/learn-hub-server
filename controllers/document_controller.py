@@ -43,7 +43,8 @@ class SearchQuery(BaseModel):
   @validator('sort_order')
   def validate_sort_order(cls, v):
     if v is not None and v not in [-1, 1]:
-      raise ValueError("sort_order must be either -1 (descending) or 1 (ascending)")
+      raise ValueError(
+          "sort_order must be either -1 (descending) or 1 (ascending)")
     return v
 
   def model_post_init(self, __context):
@@ -134,10 +135,7 @@ async def get_document_route(document_id: str):
 @router.delete("/document/{document_id}")
 async def delete_document_route(document_id: str):
   try:
-    # First delete the chunks
     await delete_chunks(document_id)
-
-    # Then delete the document
     success = await delete_document(document_id)
 
     if not success:
@@ -157,42 +155,47 @@ async def delete_document_route(document_id: str):
     }
 
 
+async def download_document_file(document_id: str):
+  document = await get_document(document_id)
+  if not document:
+    return None, "Document not found"
+
+  headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+  }
+
+  async with httpx.AsyncClient(
+      timeout=httpx.Timeout(300.0),
+      follow_redirects=True
+  ) as client:
+    print(f'Downloading file from url={document["file_url"]}')
+    print(headers)
+
+    async with client.stream('GET', document['file_url'], headers=headers) as response:
+      if response.status_code != 200:
+        return None, "Failed to download file from URL"
+
+      file_ext = document['file_extension']
+      with tempfile.NamedTemporaryFile(delete=False, suffix='.'+file_ext) as tmp:
+        temp_file_path = tmp.name
+        async for chunk in response.aiter_bytes():
+          tmp.write(chunk)
+        tmp.flush()
+
+  print('Download successfully')
+  return temp_file_path, document['file_extension']
+
+
 @router.post("/document/pinecone/{document_id}")
 async def reprocess_to_pinecone(document_id: str):
   try:
-    document = await get_document(document_id)
-    if not document:
+    temp_file_path, file_ext = await download_document_file(document_id)
+    if not temp_file_path:
       return {
           "status": "error",
-          "message": "Document not found"
+          "message": file_ext
       }
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
-    }
-
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(300.0),
-        follow_redirects=True
-    ) as client:
-      print(f'Downloading file from url={document["file_url"]}')
-      print(headers)
-
-      async with client.stream('GET', document['file_url'], headers=headers) as response:
-        if response.status_code != 200:
-          return {
-              "status": "error",
-              "message": "Failed to download file from URL"
-          }
-
-        file_ext = document['file_extension']
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
-          temp_file_path = tmp.name
-          async for chunk in response.aiter_bytes():
-            tmp.write(chunk)
-          tmp.flush()
-
-    print('Download successfully')
     print('Processing file')
 
     try:
@@ -207,6 +210,7 @@ async def reprocess_to_pinecone(document_id: str):
 
       print('Processing successfully')
 
+      document = await get_document(document_id)
       await add_document(
           documents,
           document['user_id'],
@@ -283,27 +287,29 @@ async def list_documents(
     sort_by: str = "created_date",
     sort_order: int = -1
 ):
-    try:
-        if sort_by not in ["created_date", "questions_count"]:
-            raise ValueError("sort_by must be either 'created_date' or 'questions_count'")
-        if sort_order not in [-1, 1]:
-            raise ValueError("sort_order must be either -1 (descending) or 1 (ascending)")
+  try:
+    if sort_by not in ["created_date", "questions_count"]:
+      raise ValueError(
+          "sort_by must be either 'created_date' or 'questions_count'")
+    if sort_order not in [-1, 1]:
+      raise ValueError(
+          "sort_order must be either -1 (descending) or 1 (ascending)")
 
-        documents = await list_user_documents(
-            user_id=user_id,
-            page=page,
-            limit=limit,
-            sort_by=sort_by,
-            sort_order=sort_order
-        )
-        return {
-            "status": "success",
-            "data": documents,
-            "message": "Documents fetched successfully"
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "data": [],
-            "message": str(e)
-        }
+    documents = await list_user_documents(
+        user_id=user_id,
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    return {
+        "status": "success",
+        "data": documents,
+        "message": "Documents fetched successfully"
+    }
+  except Exception as e:
+    return {
+        "status": "error",
+        "data": [],
+        "message": str(e)
+    }

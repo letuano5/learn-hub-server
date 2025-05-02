@@ -14,8 +14,8 @@ class ImageGenerator(DocumentProcessor):
     try:
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": f"Converting image to base64"
+            "status": "processing",
+            "progress": f"Converting image to base64"
         }
 
       # Open and convert image to base64
@@ -26,8 +26,8 @@ class ImageGenerator(DocumentProcessor):
 
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Image converted successfully"
+            "status": "processing",
+            "progress": "Image converted successfully"
         }
 
       return base64_image
@@ -35,8 +35,8 @@ class ImageGenerator(DocumentProcessor):
     except Exception as e:
       if task_id:
         task_results[task_id] = {
-          "status": "error",
-          "message": f"Error converting image: {str(e)}"
+            "status": "error",
+            "message": f"Error converting image: {str(e)}"
         }
       raise e
 
@@ -44,8 +44,8 @@ class ImageGenerator(DocumentProcessor):
     try:
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Converting image to base64"
+            "status": "processing",
+            "progress": "Converting image to base64"
         }
 
       # Convert image to base64
@@ -53,8 +53,8 @@ class ImageGenerator(DocumentProcessor):
 
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Generating questions from image"
+            "status": "processing",
+            "progress": "Generating questions from image"
         }
 
       # Generate questions using the image processor
@@ -62,8 +62,8 @@ class ImageGenerator(DocumentProcessor):
 
       if task_id:
         task_results[task_id] = {
-          "status": "completed",
-          "message": "Questions generated successfully"
+            "status": "completed",
+            "message": "Questions generated successfully"
         }
 
       return questions
@@ -71,8 +71,7 @@ class ImageGenerator(DocumentProcessor):
     except Exception as e:
       if task_id:
         task_results[task_id] = {
-          "status": "error",
-          "message": f"Error generating questions: {str(e)}"
+            "status": "error",
+            "message": f"Error generating questions: {str(e)}"
         }
       raise e
-  

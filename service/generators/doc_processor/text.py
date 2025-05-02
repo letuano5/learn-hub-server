@@ -2,6 +2,7 @@ from service.generators.generators import DocumentProcessor
 from llama_index.core import SimpleDirectoryReader
 from controllers.shared_resources import task_results
 
+
 class TextFileProcessor(DocumentProcessor):
   def get_text(self, file_path):
     reader = SimpleDirectoryReader(input_files=[file_path])
@@ -13,16 +14,16 @@ class TextFileProcessor(DocumentProcessor):
     try:
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Reading text file"
+            "status": "processing",
+            "progress": "Reading text file"
         }
 
       text = self.get_text(file_path)
 
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Generating questions from text"
+            "status": "processing",
+            "progress": "Generating questions from text"
         }
 
       return await self.text_processor.generate_questions(text, num_question, language, difficulty)
@@ -30,8 +31,8 @@ class TextFileProcessor(DocumentProcessor):
     except Exception as e:
       if task_id:
         task_results[task_id] = {
-          "status": "error",
-          "message": str(e)
+            "status": "error",
+            "message": str(e)
         }
       raise e
 
@@ -39,16 +40,16 @@ class TextFileProcessor(DocumentProcessor):
     try:
       if task_id:
         task_results[task_id] = {
-          "status": "processing",
-          "progress": "Generating questions from text"
+            "status": "processing",
+            "progress": "Generating questions from text"
         }
 
       questions = await self.text_processor.generate_questions(text, num_question, language, difficulty)
 
       if task_id:
         task_results[task_id] = {
-          "status": "completed",
-          "message": "Questions generated successfully"
+            "status": "completed",
+            "message": "Questions generated successfully"
         }
 
       return questions
@@ -56,7 +57,7 @@ class TextFileProcessor(DocumentProcessor):
     except Exception as e:
       if task_id:
         task_results[task_id] = {
-          "status": "error",
-          "message": str(e)
+            "status": "error",
+            "message": str(e)
         }
       raise e

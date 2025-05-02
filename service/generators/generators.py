@@ -163,7 +163,7 @@ class ImageProcessor:
 
       for images in image_segments:
         prompt = get_user_prompt_images(
-            language, 
+            language,
             num_question_in_chunk + (1 if remain_question > 0 else 0),
             difficulty
         )
@@ -210,7 +210,8 @@ class FileProcessor:
     self.generator = generator
 
   async def generate_questions(self, genai_link, num_question: int, language: str, difficulty: str = "medium"):
-    prompt = get_user_prompt_file(lang=language, count=num_question, difficulty=difficulty)
+    prompt = get_user_prompt_file(
+        lang=language, count=num_question, difficulty=difficulty)
     return fix_json_array([await self.generator.generate_from_genai_link(prompt, genai_link)])
 
 

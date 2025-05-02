@@ -9,6 +9,7 @@ import os
 import tempfile
 import uuid
 import json
+from controllers.document_controller import download_document_file
 
 router = APIRouter()
 
@@ -71,6 +72,61 @@ async def gen_from_link(request: LinkRequest, background_tasks: BackgroundTasks)
       process_link, request.link, request.user_id, request.is_public, request.count, request.lang, request.difficulty, task_id)
 
   return {"task_id": task_id, "status": "processing"}
+
+
+async def process_document_download(document_id: str, user_id: str, is_public: bool, count: int, lang: str, difficulty: str, task_id: str):
+  try:
+    task_results[task_id] = {"status": "processing",
+                             "message": f"Downloading {document_id}"}
+    temp_file_path, file_ext = await download_document_file(document_id)
+    print(
+        f"Downloaded {document_id} to {temp_file_path} with extension {file_ext}")
+    if not temp_file_path:
+      task_results[task_id] = {
+          "status": "error",
+          "message": file_ext
+      }
+      return
+
+    await process_file(temp_file_path, user_id, is_public, '.' + file_ext, count, lang, difficulty, task_id)
+  except Exception as e:
+    task_results[task_id] = {
+        "status": "error",
+        "message": str(e)
+    }
+
+
+@router.post("/generate/document")
+async def generate_from_document(
+    document_id: str,
+    user_id: str,
+    is_public: bool,
+    count: int,
+    lang: str,
+    background_tasks: BackgroundTasks,
+    difficulty: str = "medium"
+):
+  try:
+    task_id = str(uuid.uuid4())
+    task_results[task_id] = {"status": "in_queue"}
+
+    background_tasks.add_task(
+        process_document_download,
+        document_id,
+        user_id,
+        is_public,
+        count,
+        lang,
+        difficulty,
+        task_id
+    )
+
+    return {"task_id": task_id, "status": "processing"}
+  except Exception as e:
+    return {
+        "status": "error",
+        "message": str(e)
+    }
 
 
 async def select_categories_and_title(questions: list, categories: list) -> tuple[list[str], str]:

@@ -1,6 +1,7 @@
 import base64
 from service.generators.base import GenAIClient
 
+
 class Summarizer(GenAIClient):
   async def summarize_images(self, images):
     prompt = f'''
@@ -10,9 +11,9 @@ Just return the summary without any other text.
     contents = [prompt]
     for image in images:
       contents.append({
-        "mime_type": "image/jpeg",
-        "data": base64.b64decode(image)
-    })
+          "mime_type": "image/jpeg",
+          "data": base64.b64decode(image)
+      })
     # TODO: Replace with generate_content_async
     resp = await self.model.generate_content_async(contents=contents)
     return resp.text

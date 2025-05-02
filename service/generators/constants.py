@@ -133,6 +133,7 @@ Now read carefully the contents written on these images, then generate {count} i
 The generated questions and answers must be in {lang}. However, your response must still follow the JSON format provided before. This means that while the values should be in {lang}, the keys must be the exact same as given before, in English.
 """
 
+
 def get_user_prompt_file(lang: str, count: int, difficulty: str = "medium"):
   return default_prompt + '\n' + f"""
 Now read carefully the contents written on this document, then generate {count} insightful questions that tests understanding of key concepts or important details. The questions should be of {difficulty} difficulty level.
