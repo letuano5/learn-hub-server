@@ -8,6 +8,11 @@ collection = mongo_database['quizzes']
 
 async def add_quiz(quiz, user_id: str, is_public: bool = True):
   quiz_with_info = dict(quiz)
+
+  for question in quiz_with_info.get('questions', []):
+    if 'question_id' not in question:
+      question['question_id'] = str(ObjectId())
+
   quiz_with_info.update({
       'user_id': user_id,
       'is_public': is_public,
