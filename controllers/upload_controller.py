@@ -21,6 +21,8 @@ class SearchQuery(BaseModel):
   file_extension: Optional[str] = None
   size: Optional[int] = None
   start: Optional[int] = None
+  sort_by: Optional[str] = None
+  sort_order: Optional[int] = None
 
   @validator('min_date', 'max_date')
   def parse_date(cls, v):
@@ -31,6 +33,18 @@ class SearchQuery(BaseModel):
       return date_obj
     except ValueError:
       raise ValueError('Date must be in dd/mm/yyyy format')
+
+  @validator('sort_by')
+  def validate_sort_by(cls, v):
+    if v is not None and v not in ["date"]:
+      raise ValueError("sort_by must be 'date'")
+    return v
+
+  @validator('sort_order')
+  def validate_sort_order(cls, v):
+    if v is not None and v not in [-1, 1]:
+      raise ValueError("sort_order must be either -1 (descending) or 1 (ascending)")
+    return v
 
   def model_post_init(self, __context):
     if self.max_date:
@@ -48,7 +62,9 @@ async def search_documents_route(query: SearchQuery):
         filename=query.filename,
         file_extension=query.file_extension,
         size=query.size,
-        start=query.start
+        start=query.start,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order
     )
 
     return {
@@ -257,3 +273,37 @@ async def upload_document(
         "status": "error",
         "message": str(e)
     }
+
+
+@router.get("/documents")
+async def list_documents(
+    user_id: str,
+    page: int = 1,
+    limit: int = 10,
+    sort_by: str = "created_date",
+    sort_order: int = -1
+):
+    try:
+        if sort_by not in ["created_date", "questions_count"]:
+            raise ValueError("sort_by must be either 'created_date' or 'questions_count'")
+        if sort_order not in [-1, 1]:
+            raise ValueError("sort_order must be either -1 (descending) or 1 (ascending)")
+
+        documents = await list_user_documents(
+            user_id=user_id,
+            page=page,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        return {
+            "status": "success",
+            "data": documents,
+            "message": "Documents fetched successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "data": [],
+            "message": str(e)
+        }

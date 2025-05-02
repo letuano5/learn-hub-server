@@ -67,7 +67,9 @@ async def search_documents(
     filename: Optional[str] = None,
     file_extension: Optional[str] = None,
     size: Optional[int] = None,
-    start: Optional[int] = None
+    start: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[int] = None
 ):
   query = {}
   
@@ -93,6 +95,11 @@ async def search_documents(
     query['file_extension'] = {'$regex': f'^{file_extension}$', '$options': 'i'}
 
   cursor = collection.find(query)
+  
+  if sort_by is not None and sort_order is not None:
+    sort_dict = {sort_by: sort_order}
+    cursor = cursor.sort(sort_dict)
+  
   if start is not None:
     cursor = cursor.skip(start)
   if size is not None:

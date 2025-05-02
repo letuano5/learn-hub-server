@@ -22,6 +22,8 @@ class SearchQuery(BaseModel):
   size: Optional[int] = None
   start: Optional[int] = None
   title: Optional[str] = None
+  sort_by: Optional[str] = "created_date"
+  sort_order: Optional[int] = -1
 
   @validator('min_created_date', 'max_created_date', 'min_last_modified', 'max_last_modified')
   def parse_date(cls, v):
@@ -32,6 +34,18 @@ class SearchQuery(BaseModel):
       return date_obj
     except ValueError:
       raise ValueError('Date must be in dd/mm/yyyy format')
+
+  @validator('sort_by')
+  def validate_sort_by(cls, v):
+    if v not in ["created_date", "num_question", "last_modified_date"]:
+      raise ValueError("sort_by must be either 'created_date' or 'num_question' or 'last_modified_date'")
+    return v
+
+  @validator('sort_order')
+  def validate_sort_order(cls, v):
+    if v not in [-1, 1]:
+      raise ValueError("sort_order must be either -1 (descending) or 1 (ascending)")
+    return v
 
   def model_post_init(self, __context):
     if self.max_created_date:
@@ -92,7 +106,9 @@ async def search_quizzes_direct(query: SearchQuery):
         categories=query.categories,
         size=query.size,
         start=query.start,
-        title=query.title
+        title=query.title,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order
     )
     return {
         "status": "success",
