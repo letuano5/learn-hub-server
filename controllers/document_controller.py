@@ -34,11 +34,11 @@ class SearchQuery(BaseModel):
     except ValueError:
       raise ValueError('Date must be in dd/mm/yyyy format')
 
-  @validator('sort_by')
-  def validate_sort_by(cls, v):
-    if v is not None and v not in ["date"]:
-      raise ValueError("sort_by must be 'date'")
-    return v
+  # @validator('sort_by')
+  # def validate_sort_by(cls, v):
+  #   if v is not None and v not in ["date"]:
+  #     raise ValueError("sort_by must be 'date'")
+  #   return v
 
   @validator('sort_order')
   def validate_sort_order(cls, v):

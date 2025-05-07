@@ -35,12 +35,12 @@ class SearchQuery(BaseModel):
     except ValueError:
       raise ValueError('Date must be in dd/mm/yyyy format')
 
-  @validator('sort_by')
-  def validate_sort_by(cls, v):
-    if v not in ["created_date", "num_question", "last_modified_date"]:
-      raise ValueError(
-          "sort_by must be either 'created_date' or 'num_question' or 'last_modified_date'")
-    return v
+  # @validator('sort_by')
+  # def validate_sort_by(cls, v):
+  #   if v not in ["created_date", "num_question", "last_modified_date"]:
+  #     raise ValueError(
+  #         "sort_by must be either 'created_date' or 'num_question' or 'last_modified_date'")
+  #   return v
 
   @validator('sort_order')
   def validate_sort_order(cls, v):
