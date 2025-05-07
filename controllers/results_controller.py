@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from models.results import (
     add_result, update_result_answer, get_result,
-    delete_result, get_results_by_quiz, get_results_by_user
+    delete_result, get_results_by_quiz, get_results_by_user,
+    count_results_by_quiz, count_results_by_user
 )
 from bson import ObjectId
 from typing import Dict, Optional, List
@@ -80,13 +81,20 @@ async def get_result_route(result_id: str):
 
 
 @router.get("/quiz/{quiz_id}")
-async def get_results_by_quiz_route(quiz_id: str):
+async def get_results_by_quiz_route(
+    quiz_id: str, 
+    skip: Optional[int] = None, 
+    limit: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[int] = None
+):
   try:
     ObjectId(quiz_id)
-    results = await get_results_by_quiz(quiz_id)
+    results = await get_results_by_quiz(quiz_id, skip, limit, sort_by, sort_order)
     return {
         "status": "success",
         "data": results,
+        "total": len(results),
         "message": "Results fetched successfully"
     }
   except Exception as e:
@@ -97,13 +105,53 @@ async def get_results_by_quiz_route(quiz_id: str):
 
 
 @router.get("/user/{user_id}")
-async def get_results_by_user_route(user_id: str):
+async def get_results_by_user_route(
+    user_id: str, 
+    skip: Optional[int] = None, 
+    limit: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[int] = None
+):
   try:
-    results = await get_results_by_user(user_id)
+    results = await get_results_by_user(user_id, skip, limit, sort_by, sort_order)
     return {
         "status": "success",
         "data": results,
+        "total": len(results),
         "message": "Results fetched successfully"
+    }
+  except Exception as e:
+    return {
+        "status": "error",
+        "message": str(e)
+    }
+
+
+@router.get("/quiz/{quiz_id}/count")
+async def count_results_by_quiz_route(quiz_id: str):
+  try:
+    ObjectId(quiz_id)
+    total = await count_results_by_quiz(quiz_id)
+    return {
+        "status": "success",
+        "count": total,
+        "message": "Results count fetched successfully"
+    }
+  except Exception as e:
+    return {
+        "status": "error",
+        "message": str(e)
+    }
+
+
+@router.get("/user/{user_id}/count")
+async def count_results_by_user_route(user_id: str):
+  try:
+    total = await count_results_by_user(user_id)
+    return {
+        "status": "success",
+        "count": total,
+        "message": "Results count fetched successfully"
     }
   except Exception as e:
     return {

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File
-from models.documents import add_doc_with_link, get_document, search_documents, count_documents, delete_document
+from models.documents import add_doc_with_link, get_document, search_documents, count_documents, delete_document, update_document
 from service.processors.service import delete_chunks, process_pdf, process_docx, process_text_file, add_document
 import os
 import uuid
@@ -313,3 +313,26 @@ async def list_documents(
         "data": [],
         "message": str(e)
     }
+
+
+@router.put("/document")
+async def update_document_route(document_id: str, filename: Optional[str] = None, is_public: Optional[bool] = None):
+    try:
+        updated_document = await update_document(document_id, filename, is_public)
+        
+        if not updated_document:
+            return {
+                "status": "error",
+                "message": "Document not found or no changes made"
+            }
+            
+        return {
+            "status": "success",
+            "data": updated_document,
+            "message": "Document updated successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }

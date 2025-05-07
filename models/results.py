@@ -103,8 +103,21 @@ async def delete_result(result_id: str):
   return result
 
 
-async def get_results_by_quiz(quiz_id: str):
-  results = await collection.find({'quiz_id': quiz_id}).to_list(length=1000)
+async def get_results_by_quiz(quiz_id: str, skip: Optional[int] = None, limit: Optional[int] = None, sort_by: Optional[str] = None, sort_order: Optional[int] = None):
+  cursor = collection.find({'quiz_id': quiz_id})
+  
+  # Apply sorting if specified
+  if sort_by is not None and sort_order is not None:
+    sort_dict = {sort_by: sort_order}
+    cursor = cursor.sort(sort_dict)
+  
+  # Apply pagination if specified
+  if skip is not None:
+    cursor = cursor.skip(skip)
+  if limit is not None:
+    cursor = cursor.limit(limit)
+    
+  results = await cursor.to_list(length=None)
 
   for result in results:
     result['_id'] = str(result['_id'])
@@ -112,8 +125,21 @@ async def get_results_by_quiz(quiz_id: str):
   return results
 
 
-async def get_results_by_user(user_id: str):
-  results = await collection.find({'user_id': user_id}).to_list(length=1000)
+async def get_results_by_user(user_id: str, skip: Optional[int] = None, limit: Optional[int] = None, sort_by: Optional[str] = None, sort_order: Optional[int] = None):
+  cursor = collection.find({'user_id': user_id})
+  
+  # Apply sorting if specified
+  if sort_by is not None and sort_order is not None:
+    sort_dict = {sort_by: sort_order}
+    cursor = cursor.sort(sort_dict)
+  
+  # Apply pagination if specified
+  if skip is not None:
+    cursor = cursor.skip(skip)
+  if limit is not None:
+    cursor = cursor.limit(limit)
+    
+  results = await cursor.to_list(length=None)
 
   for result in results:
     result['_id'] = str(result['_id'])
@@ -204,3 +230,11 @@ async def update_results_for_quiz_edit(quiz_id: str, old_quiz: Dict[str, Any], n
                   'last_modified_date': datetime.now(timezone.utc)
               }}
           )
+
+
+async def count_results_by_quiz(quiz_id: str) -> int:
+  return await collection.count_documents({'quiz_id': quiz_id})
+
+
+async def count_results_by_user(user_id: str) -> int:
+  return await collection.count_documents({'user_id': user_id})
