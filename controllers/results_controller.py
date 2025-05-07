@@ -2,12 +2,14 @@ from fastapi import APIRouter, HTTPException
 from models.results import (
     add_result, update_result_answer, get_result,
     delete_result, get_results_by_quiz, get_results_by_user,
-    count_results_by_quiz, count_results_by_user
+    count_results_by_quiz, count_results_by_user,
+    update_result_answer_by_question
 )
 from bson import ObjectId
 from typing import Dict, Optional, List
 from datetime import datetime
 from pydantic import BaseModel
+from pydantic import validator
 
 router = APIRouter()
 
@@ -15,6 +17,18 @@ router = APIRouter()
 class ResultAnswerUpdate(BaseModel):
   question_index: int
   answer: int
+
+
+class QuestionAnswerUpdate(BaseModel):
+    question_id: str
+    answer: int
+    is_correct: bool
+
+    @validator('answer')
+    def validate_answer(cls, v):
+        if v not in [0, 1, 2, 3]:
+            raise ValueError('Answer must be between 0 and 3')
+        return v
 
 
 @router.post("/quiz/{quiz_id}/user/{user_id}")
@@ -179,3 +193,34 @@ async def delete_result_route(result_id: str):
         "status": "error",
         "message": str(e)
     }
+
+
+@router.put("/{result_id}/answer")
+async def update_question_answer_route(result_id: str, update_data: QuestionAnswerUpdate):
+    try:
+        ObjectId(result_id)
+        ObjectId(update_data.question_id)
+        
+        updated_result = await update_result_answer_by_question(
+            result_id=result_id,
+            question_id=update_data.question_id,
+            answer=update_data.answer,
+            is_correct=update_data.is_correct
+        )
+        
+        if not updated_result:
+            return {
+                "status": "error",
+                "message": "Failed to update answer"
+            }
+            
+        return {
+            "status": "success",
+            "data": updated_result,
+            "message": "Answer updated successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }

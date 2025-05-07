@@ -14,8 +14,16 @@ async def add_result(quiz_id: str, user_id: str):
     raise ValueError(f"Quiz with id {quiz_id} not found")
 
   num_questions = len(quiz.get('questions', []))
-
-  status = [-1] * num_questions
+  
+  # Create status array with question_id and initial answer
+  status = []
+  for question in quiz.get('questions', []):
+    print(question)
+    status.append({
+      "question_id": question["question_id"],
+      "answer": -1,
+      "is_correct": False
+    })
 
   result = {
       'quiz_id': quiz_id,
@@ -38,6 +46,66 @@ async def add_result(quiz_id: str, user_id: str):
 
   result_id = await collection.insert_one(result)
   return result_id.inserted_id
+
+
+async def update_result_answer_by_question(result_id: str, question_id: str, answer: int, is_correct: bool):
+  try:
+    object_id = ObjectId(result_id)
+    result = await collection.find_one({'_id': object_id})
+    
+    if not result:
+      raise ValueError(f"Result with id {result_id} not found")
+    
+    # Find and update the answer for the specific question
+    status = result['status']
+    found = False
+    old_answer = None
+    old_is_correct = None
+    
+    for item in status:
+      if str(item['question_id']) == question_id:
+        old_answer = item['answer']
+        old_is_correct = item['is_correct']
+        item['answer'] = answer
+        item['is_correct'] = is_correct
+        found = True
+        break
+    
+    if not found:
+      raise ValueError(f"Question with id {question_id} not found in result")
+    
+    # Update counters
+    update_data = {
+      'status': status,
+      'last_modified_date': datetime.now(timezone.utc)
+    }
+    
+    if old_answer == -1:
+      # First time answering this question
+      update_data['num_unfinished'] = result['num_unfinished'] - 1
+      if is_correct:
+        update_data['num_correct'] = result['num_correct'] + 1
+      else:
+        update_data['num_incorrect'] = result['num_incorrect'] + 1
+    elif old_is_correct != is_correct:
+      # Answer correctness changed
+      if is_correct:
+        update_data['num_correct'] = result['num_correct'] + 1
+        update_data['num_incorrect'] = result['num_incorrect'] - 1
+      else:
+        update_data['num_correct'] = result['num_correct'] - 1
+        update_data['num_incorrect'] = result['num_incorrect'] + 1
+    
+    # Update the document with the new status array
+    await collection.update_one(
+      {'_id': object_id},
+      {'$set': update_data}
+    )
+    
+    # Return updated document
+    return await get_result(result_id)
+  except Exception as e:
+    raise Exception(f"Error updating result answer: {str(e)}")
 
 
 async def update_result_answer(result_id: str, question_index: int, answer: int):
