@@ -154,23 +154,23 @@ async def update_document(document_id: str, filename: Optional[str] = None, is_p
   try:
     object_id = ObjectId(document_id)
     update_data = {}
-    
+
     if filename is not None:
       update_data['filename'] = filename
     if is_public is not None:
       update_data['is_public'] = is_public
-      
+
     if not update_data:
       raise Exception("No fields to update")
-      
+
     result = await collection.update_one(
-      {'_id': object_id},
-      {'$set': update_data}
+        {'_id': object_id},
+        {'$set': update_data}
     )
-    
+
     if result.modified_count == 0:
       return None
-      
+
     updated_document = await get_document(document_id)
     return updated_document
   except Exception as e:

@@ -48,29 +48,6 @@ async def create_result(quiz_id: str, user_id: str):
     }
 
 
-# @router.put("/{result_id}/answer")
-# async def update_answer_route(result_id: str, update_data: ResultAnswerUpdate):
-#     try:
-#         ObjectId(result_id)
-#         updated_result = await update_result_answer(result_id, update_data.question_index, update_data.answer)
-#         if updated_result:
-#             return {
-#                 "status": "success",
-#                 "data": updated_result,
-#                 "message": "Answer updated successfully"
-#             }
-#         else:
-#             return {
-#                 "status": "error",
-#                 "message": "Failed to update answer"
-#             }
-#     except Exception as e:
-#         return {
-#             "status": "error",
-#             "message": str(e)
-#         }
-
-
 @router.get("/{result_id}")
 async def get_result_route(result_id: str):
   try:
