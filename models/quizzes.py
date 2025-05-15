@@ -20,7 +20,9 @@ async def add_quiz(quiz, user_id: str, is_public: bool = True):
       'last_modified_date': datetime.now(timezone.utc),
       'num_question': len(quiz_with_info.get('questions', []))
   })
-  return await collection.insert_one(quiz_with_info)
+  result = await collection.insert_one(quiz_with_info)
+  quiz['_id'] = str(result.inserted_id)
+  return quiz
 
 
 async def update_quiz(quiz_id: str, update_data: dict):
