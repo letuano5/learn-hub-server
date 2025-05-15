@@ -57,75 +57,68 @@ class TextProcessor:
 
   async def generate_questions(self, text: str, num_question: int, language: str, difficulty: str = "medium"):
     chunks = self.chunk_document(text)
-
-    print(len(chunks))
-
-    if (len(chunks) <= num_question):
-      questions_json = []
-      num_question_in_chunk = num_question // len(chunks)
-      remain_question = num_question % len(chunks)
-
-      tasks = []
-      for chunk in chunks:
-        prompt = get_user_prompt_text(
-            language,
-            num_question_in_chunk + (1 if remain_question > 0 else 0),
-            chunk.text,
-            difficulty
+    all_questions = []
+    attempts = 0
+    max_attempts = 10
+    while len(all_questions) < num_question and attempts < max_attempts:
+      attempts += 1
+      remaining_question = num_question - len(all_questions)
+      if (len(chunks) <= remaining_question):
+        questions_json = []
+        num_question_in_chunk = remaining_question // len(chunks)
+        remain_question = remaining_question % len(chunks)
+        tasks = []
+        for chunk in chunks:
+          prompt = get_user_prompt_text(
+              language,
+              num_question_in_chunk + (1 if remain_question > 0 else 0),
+              chunk.text,
+              difficulty
+          )
+          remain_question -= 1
+          tasks.append(self.generator.generate_from_text(prompt))
+        questions_json = await asyncio.gather(*tasks, return_exceptions=True)
+        valid_results = []
+        for result in questions_json:
+          if isinstance(result, Exception):
+            print(f"Error in task: {result}")
+            valid_results.append('{"questions": []}')
+          else:
+            valid_results.append(result)
+        merged = fix_json_array(valid_results)
+        all_questions.extend(merged["questions"])
+      else:
+        # Summarized the main content
+        chunks_text = [node.text for node in chunks]
+        vectorizer = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform(chunks_text)
+        sim_matrix = cosine_similarity(tfidf_matrix)
+        graph = nx.from_numpy_array(sim_matrix)
+        scores = nx.pagerank(graph)
+        ranked_chunks = sorted(
+            ((score, chunk) for chunk, score in zip(chunks_text, scores.values())),
+            key=lambda x: x[0],
+            reverse=True
         )
-        remain_question -= 1
-        tasks.append(self.generator.generate_from_text(prompt))
-
-      questions_json = await asyncio.gather(*tasks, return_exceptions=True)
-
-      valid_results = []
-      for result in questions_json:
-        if isinstance(result, Exception):
-          print(f"Error in task: {result}")
-          valid_results.append('{"questions": []}')
-        else:
-          valid_results.append(result)
-
-      return fix_json_array(valid_results)
-    else:
-      # Summarized the main content
-      # https://chatgpt.com/share/67f5d65f-8e78-8012-a3dd-6257744d95ff
-
-      chunks = [node.text for node in chunks]
-
-      vectorizer = TfidfVectorizer(stop_words='english')
-      tfidf_matrix = vectorizer.fit_transform(chunks)
-
-      sim_matrix = cosine_similarity(tfidf_matrix)
-
-      graph = nx.from_numpy_array(sim_matrix)
-      scores = nx.pagerank(graph)
-      ranked_chunks = sorted(
-          ((score, chunk) for chunk, score in zip(chunks, scores.values())),
-          key=lambda x: x[0],
-          reverse=True
-      )
-      selected_chunks = [chunk for score,
-                         chunk in ranked_chunks[:num_question]]
-
-      print('Done ranking document')
-
-      tasks = []
-      for chunk in selected_chunks:
-        prompt = get_user_prompt_text(language, 1, chunk, difficulty)
-        tasks.append(self.generator.generate_from_text(prompt))
-
-      results = await asyncio.gather(*tasks, return_exceptions=True)
-
-      valid_jsons = []
-      for result in results:
-        if isinstance(result, Exception):
-          print(f"Error in task: {result}")
-          valid_jsons.append('{"questions": []}')
-        else:
-          valid_jsons.append(result)
-
-      return fix_json_array(valid_jsons)
+        selected_chunks = [chunk for score,
+                           chunk in ranked_chunks[:remaining_question]]
+        print('Done ranking document')
+        tasks = []
+        for chunk in selected_chunks:
+          prompt = get_user_prompt_text(language, 1, chunk, difficulty)
+          tasks.append(self.generator.generate_from_text(prompt))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        valid_jsons = []
+        for result in results:
+          if isinstance(result, Exception):
+            print(f"Error in task: {result}")
+            valid_jsons.append('{"questions": []}')
+          else:
+            valid_jsons.append(result)
+        merged = fix_json_array(valid_jsons)
+        all_questions.extend(merged["questions"])
+    merged = {"questions": all_questions[:num_question]}
+    return merged
 
 
 # Generate questions with images
@@ -152,56 +145,52 @@ class ImageProcessor:
 
   async def generate_questions(self, images, num_question: int, language: str, difficulty: str = "medium"):
     image_segments = self.generate_chunks(images)
-
-    print('Generating', len(image_segments), num_question)
-
-    if len(image_segments) <= num_question:
-      # Just throw the image directly to the model
-      tasks = []
-      num_question_in_chunk = num_question // len(image_segments)
-      remain_question = num_question % len(image_segments)
-
-      for images in image_segments:
-        prompt = get_user_prompt_images(
-            language,
-            num_question_in_chunk + (1 if remain_question > 0 else 0),
-            difficulty
-        )
-        remain_question -= 1
-        tasks.append(
-            self.generator.generate_from_base64_images(prompt, images))
-
-      questions_json = await asyncio.gather(*tasks, return_exceptions=True)
-
-      valid_results = []
-      for result in questions_json:
-        if isinstance(result, Exception):
-          print(f"Error in task: {result}")
-          valid_results.append('{"questions": []}')
-        else:
-          valid_results.append(result)
-
-      return fix_json_array(valid_results)
-    else:
-      # Summarized the main content
-
-      print('Summarizing the images...')
-      summarize_tasks = []
-      for images in image_segments:
-        summarize_tasks.append(self.summarizer.summarize_images(images))
-
-      summaries = await asyncio.gather(*summarize_tasks, return_exceptions=True)
-
-      text = ''
-      for summary in summaries:
-        if isinstance(summary, Exception):
-          print(f"Error in summarization: {summary}")
-          continue
-        text += summary + '\n'
-
-      print('Summarized text:', text)
-
-      return fix_json_array(await self.text_processor.generate_questions(text, num_question, language, difficulty))
+    all_questions = []
+    attempts = 0
+    max_attempts = 10
+    while len(all_questions) < num_question and attempts < max_attempts:
+      attempts += 1
+      remaining_question = num_question - len(all_questions)
+      if len(image_segments) <= remaining_question:
+        tasks = []
+        num_question_in_chunk = remaining_question // len(image_segments)
+        remain_question = remaining_question % len(image_segments)
+        for images in image_segments:
+          prompt = get_user_prompt_images(
+              language,
+              num_question_in_chunk + (1 if remain_question > 0 else 0),
+              difficulty
+          )
+          remain_question -= 1
+          tasks.append(
+              self.generator.generate_from_base64_images(prompt, images))
+        questions_json = await asyncio.gather(*tasks, return_exceptions=True)
+        valid_results = []
+        for result in questions_json:
+          if isinstance(result, Exception):
+            print(f"Error in task: {result}")
+            valid_results.append('{"questions": []}')
+          else:
+            valid_results.append(result)
+        merged = fix_json_array(valid_results)
+        all_questions.extend(merged["questions"])
+      else:
+        print('Summarizing the images...')
+        summarize_tasks = []
+        for images in image_segments:
+          summarize_tasks.append(self.summarizer.summarize_images(images))
+        summaries = await asyncio.gather(*summarize_tasks, return_exceptions=True)
+        text = ''
+        for summary in summaries:
+          if isinstance(summary, Exception):
+            print(f"Error in summarization: {summary}")
+            continue
+          text += summary + '\n'
+        print('Summarized text:', text)
+        merged = await self.text_processor.generate_questions(text, remaining_question, language, difficulty)
+        all_questions.extend(merged["questions"])
+    merged = {"questions": all_questions[:num_question]}
+    return merged
 
 
 # Generate questions with file, just support PDF
@@ -210,9 +199,19 @@ class FileProcessor:
     self.generator = generator
 
   async def generate_questions(self, genai_link, num_question: int, language: str, difficulty: str = "medium"):
-    prompt = get_user_prompt_file(
-        lang=language, count=num_question, difficulty=difficulty)
-    return fix_json_array([await self.generator.generate_from_genai_link(prompt, genai_link)])
+    all_questions = []
+    attempts = 0
+    max_attempts = 10
+    while len(all_questions) < num_question and attempts < max_attempts:
+      attempts += 1
+      remaining_question = num_question - len(all_questions)
+      prompt = get_user_prompt_file(
+          lang=language, count=remaining_question, difficulty=difficulty)
+      result = await self.generator.generate_from_genai_link(prompt, genai_link)
+      merged = fix_json_array([result])
+      all_questions.extend(merged["questions"])
+    merged = {"questions": all_questions[:num_question]}
+    return merged
 
 
 class DocumentProcessor:
