@@ -13,10 +13,17 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.readers.file import PDFReader, DocxReader, MarkdownReader
 from service.generators.base import GenAIClient
 from service.generators.doc_processor.pdf import PDFProcessor
+from service.generators.gemini_file_upload import (
+    validate_pdf_page_count,
+    validate_docx_page_count,
+    extract_file_pages_to_markdown,
+    extract_file_to_markdown_full
+)
 from pinecone import Pinecone
 import asyncio
 import google.generativeai as genai
 import os
+import fitz
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 
@@ -140,7 +147,8 @@ async def process_pdf_images(pdf_path: str, chunk_size: int = 10, chunk_overlap:
   return documents
 
 
-async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
+# OLD METHODS - Using direct text extraction
+async def old_process_pdf(file_path: str, mode: str = "text") -> list[Document]:
   if mode == "text":
     reader = PDFReader()
     documents = reader.load_data(file_path)
@@ -161,7 +169,7 @@ async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
   return chunked_documents
 
 
-async def process_docx(file_path: str) -> list[Document]:
+async def old_process_docx(file_path: str) -> list[Document]:
   reader = DocxReader()
   documents = reader.load_data(file_path)
 
@@ -175,6 +183,110 @@ async def process_docx(file_path: str) -> list[Document]:
     )
     chunked_documents.append(doc)
 
+  return chunked_documents
+
+
+# NEW METHODS - Using Gemini batch processing for better accuracy
+async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
+  """
+  Process PDF by extracting content in 5-page batches through Gemini as markdown
+  This improves accuracy for Q&A by having Gemini properly extract and format content
+  """
+  # Validate page count
+  is_valid, total_pages = validate_pdf_page_count(file_path, max_pages=300)
+  if not is_valid:
+    raise ValueError(f"PDF with {total_pages} pages exceeds 300 page limit for Q&A processing")
+  
+  # Process in 5-page batches
+  batch_size = 5
+  markdown_texts = []
+  
+  for start_page in range(1, total_pages + 1, batch_size):
+    end_page = min(start_page + batch_size - 1, total_pages)
+    print(f"Extracting pages {start_page}-{end_page} as markdown...")
+    
+    markdown = await extract_file_pages_to_markdown(
+        file_path,
+        'pdf',
+        start_page,
+        end_page,
+        GOOGLE_GENAI_KEY
+    )
+    
+    markdown_texts.append({
+        'text': markdown,
+        'start_page': start_page,
+        'end_page': end_page
+    })
+  
+  # Create documents from markdown
+  documents = []
+  for batch in markdown_texts:
+    doc = Document(
+        text=batch['text'],
+        metadata={
+            'start_page': batch['start_page'],
+            'end_page': batch['end_page'],
+            'total_pages': total_pages,
+            'content_type': 'markdown_extracted'
+        }
+    )
+    documents.append(doc)
+  
+  # Chunk the documents
+  nodes = node_parser.get_nodes_from_documents(documents)
+  
+  chunked_documents = []
+  for node in nodes:
+    doc = Document(
+        text=node.text,
+        metadata=node.metadata
+    )
+    print('Current chunk: ', node.text[:100] + '...')
+    chunked_documents.append(doc)
+  
+  return chunked_documents
+
+
+async def process_docx(file_path: str) -> list[Document]:
+  """
+  Process DOCX by uploading entire file to Gemini once and extracting as markdown
+  This improves accuracy for Q&A and avoids multiple uploads
+  """
+  # Validate page count
+  is_valid, estimated_pages = validate_docx_page_count(file_path, max_pages=300)
+  if not is_valid:
+    raise ValueError(f"DOCX with estimated {estimated_pages} pages exceeds 300 page limit for Q&A processing")
+  
+  print(f"Extracting entire DOCX file as markdown (estimated {estimated_pages} pages)...")
+  
+  # Extract entire file as markdown (upload once)
+  markdown = await extract_file_to_markdown_full(
+      file_path,
+      'docx',
+      GOOGLE_GENAI_KEY
+  )
+  
+  # Create single document from markdown
+  doc = Document(
+      text=markdown,
+      metadata={
+          'estimated_pages': estimated_pages,
+          'content_type': 'markdown_extracted_full'
+      }
+  )
+  
+  # Chunk the document
+  nodes = node_parser.get_nodes_from_documents([doc])
+  
+  chunked_documents = []
+  for node in nodes:
+    doc = Document(
+        text=node.text,
+        metadata=node.metadata
+    )
+    chunked_documents.append(doc)
+  
   return chunked_documents
 
 

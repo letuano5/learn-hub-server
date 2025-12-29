@@ -1,3 +1,5 @@
+import os
+
 from service.generators.generators import DocumentProcessor, TextProcessor, ImageProcessor, FileProcessor
 from llama_index.readers.file import DocxReader
 from controllers.shared_resources import task_results
@@ -29,7 +31,8 @@ class DOCXProcessor(DocumentProcessor):
       text += doc.text + '\n'
     return text
 
-  async def generate_questions_from_text(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
+  # OLD METHOD - Using manual text extraction
+  async def old_generate_questions_from_text(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     try:
       if task_id:
         task_results[task_id] = {
@@ -54,3 +57,60 @@ class DOCXProcessor(DocumentProcessor):
             "message": str(e)
         }
       raise e
+
+  # NEW METHODS - Using Gemini file upload API
+  async def generate_questions(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium", api_key: str = None):
+    """Generate questions using Gemini file upload API"""
+    from service.generators.gemini_file_upload import validate_docx_page_count, upload_file_to_gemini, generate_questions_from_file
+    
+    # Validate page count
+    is_valid, page_count = validate_docx_page_count(file_path, max_pages=300)
+    if not is_valid:
+      if task_id:
+        task_results[task_id] = {
+            "status": "failed",
+            "progress": f"DOCX with estimated {page_count} pages exceeds 300 page limit"
+        }
+      raise ValueError(f"DOCX with estimated {page_count} pages exceeds 300 page limit")
+    
+    if task_id:
+      task_results[task_id] = {
+          "status": "processing",
+          "progress": f"Uploading DOCX (~{page_count} pages) to Gemini..."
+      }
+    
+    # Upload file to Gemini
+    if not api_key:
+      api_key = os.environ.get('GOOGLE_GENAI_KEY')
+    
+    uploaded_file = await upload_file_to_gemini(file_path)
+    
+    if task_id:
+      task_results[task_id] = {
+          "status": "processing",
+          "progress": "Generating questions from uploaded file..."
+      }
+    
+    # Generate questions
+    return await generate_questions_from_file(
+        uploaded_file,
+        num_question,
+        language,
+        difficulty,
+        api_key
+    )
+
+  async def extract_pages_to_markdown(self, file_path: str, start_page: int, end_page: int, api_key: str = None) -> str:
+    """Extract specific pages as markdown for Q&A processing"""
+    from service.generators.gemini_file_upload import extract_file_pages_to_markdown
+    
+    if not api_key:
+      api_key = os.environ.get('GOOGLE_GENAI_KEY')
+    
+    return await extract_file_pages_to_markdown(
+        file_path,
+        'docx',
+        start_page,
+        end_page,
+        api_key
+    )

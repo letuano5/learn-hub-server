@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Form, UploadFile, BackgroundTasks
 from controllers.shared_resources import task_semaphore, task_results
 from typing import Annotated
-from service.processors.service import query_document, process_pdf, process_docx, process_text_file, add_document
+from service.processors.service import query_document, process_pdf, process_docx, process_text_file, add_document, old_process_pdf, old_process_docx
 from service.generators.base import upload_file
 from models.documents import add_document as save_document_info
 from models.documents import add_doc_with_link
@@ -13,6 +13,26 @@ import uuid
 router = APIRouter()
 
 
+# OLD ENDPOINT - Using direct text extraction
+@router.post("/old-add")
+async def old_add_doc(file: UploadFile, user_id: str, is_public: bool, background_tasks: BackgroundTasks, mode: str = "text"):
+  filename = file.filename
+  file_ext = os.path.splitext(filename)[1].lower()
+
+  with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+    temp_file_path = tmp.name
+    content = await file.read()
+    tmp.write(content)
+
+  task_id = str(uuid.uuid4())
+
+  background_tasks.add_task(
+      old_process_file, temp_file_path, user_id, is_public, file_ext, task_id, mode, filename)
+
+  return {"task_id": task_id, "status": "processing"}
+
+
+# NEW ENDPOINT - Using Gemini batch processing for PDF/DOCX
 @router.post("/add")
 async def add_doc(file: UploadFile, user_id: str, is_public: bool, background_tasks: BackgroundTasks, mode: str = "text"):
   filename = file.filename
@@ -94,7 +114,8 @@ async def get_query_result(query_text: str, user_id: str, task_id):
 #       os.remove(temp_file_path)
 
 
-async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
+# OLD FUNCTION - Using direct text extraction
+async def old_process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
   try:
     async with task_semaphore:
 
@@ -111,9 +132,52 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
                                "message": f"Processing file {filename}..."}
 
       if file_ext == '.pdf':
+        documents = await old_process_pdf(temp_file_path, mode)
+      elif file_ext in ['.docx', '.doc']:
+        documents = await old_process_docx(temp_file_path)
+      elif file_ext in ['.md', '.txt']:
+        documents = await process_text_file(temp_file_path)
+      else:
+        raise ValueError(f"Unsupported file type: {file_ext}")
+
+      await add_document(documents, user_id, is_public, document_id, filename)
+
+      task_results[task_id] = {
+          "status": "completed",
+          "message": f"Successfully processed {len(documents)} documents",
+      }
+  except Exception as e:
+    import traceback
+    traceback.print_exc()
+    task_results[task_id] = {"status": "error", "message": str(e)}
+  finally:
+    if os.path.exists(temp_file_path):
+      os.remove(temp_file_path)
+
+
+# NEW FUNCTION - Using Gemini batch markdown extraction for PDF/DOCX
+async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
+  try:
+    async with task_semaphore:
+
+      print(f'Adding document {temp_file_path} of {user_id}')
+
+      task_results[task_id] = {"status": "uploading"}
+
+      insert_result = await add_doc_with_link(user_id, is_public, filename, temp_file_path)
+      document_id = str(insert_result.inserted_id)
+
+      print(f'Insert {document_id} into MongoDB')
+
+      task_results[task_id] = {"status": "processing",
+                               "message": f"Processing file {filename}..."}
+
+      # Use new batch processing for PDF/DOCX
+      if file_ext == '.pdf':
         documents = await process_pdf(temp_file_path, mode)
       elif file_ext in ['.docx', '.doc']:
         documents = await process_docx(temp_file_path)
+      # Text files use existing method
       elif file_ext in ['.md', '.txt']:
         documents = await process_text_file(temp_file_path)
       else:

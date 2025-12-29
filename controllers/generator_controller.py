@@ -32,6 +32,28 @@ class LinkRequest(BaseModel):
   difficulty: str = "medium"
 
 
+# OLD ENDPOINT - Using manual text/image extraction
+@router.post("/old-generate")
+async def old_gen(file: UploadFile, user_id: str, is_public: bool, count: int, lang: str, background_tasks: BackgroundTasks, difficulty: str = "medium"):
+  filename = file.filename
+  file_ext = os.path.splitext(filename)[1].lower()
+
+  with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+    temp_file_path = tmp.name
+    content = await file.read()
+    tmp.write(content)
+
+  task_id = str(uuid.uuid4())
+
+  task_results[task_id] = {"status": "in_queue"}
+
+  background_tasks.add_task(
+      old_process_file, temp_file_path, user_id, is_public, file_ext, count, lang, difficulty, task_id)
+
+  return {"task_id": task_id, "status": "processing"}
+
+
+# NEW ENDPOINT - Using Gemini file upload API
 @router.post("/generate")
 async def gen(file: UploadFile, user_id: str, is_public: bool, count: int, lang: str, background_tasks: BackgroundTasks, difficulty: str = "medium"):
   filename = file.filename
@@ -74,6 +96,30 @@ async def gen_from_link(request: LinkRequest, background_tasks: BackgroundTasks)
   return {"task_id": task_id, "status": "processing"}
 
 
+# OLD FUNCTION - Using manual extraction
+async def old_process_document_download(document_id: str, user_id: str, is_public: bool, count: int, lang: str, difficulty: str, task_id: str):
+  try:
+    task_results[task_id] = {"status": "processing",
+                             "message": f"Downloading {document_id}"}
+    temp_file_path, file_ext = await download_document_file(document_id)
+    print(
+        f"Downloaded {document_id} to {temp_file_path} with extension {file_ext}")
+    if not temp_file_path:
+      task_results[task_id] = {
+          "status": "error",
+          "message": file_ext
+      }
+      return
+
+    await old_process_file(temp_file_path, user_id, is_public, '.' + file_ext, count, lang, difficulty, task_id)
+  except Exception as e:
+    task_results[task_id] = {
+        "status": "error",
+        "message": str(e)
+    }
+
+
+# NEW FUNCTION - Using Gemini file upload
 async def process_document_download(document_id: str, user_id: str, is_public: bool, count: int, lang: str, difficulty: str, task_id: str):
   try:
     task_results[task_id] = {"status": "processing",
@@ -96,6 +142,41 @@ async def process_document_download(document_id: str, user_id: str, is_public: b
     }
 
 
+# OLD ENDPOINT
+@router.post("/old-generate/document")
+async def old_generate_from_document(
+    document_id: str,
+    user_id: str,
+    is_public: bool,
+    count: int,
+    lang: str,
+    background_tasks: BackgroundTasks,
+    difficulty: str = "medium"
+):
+  try:
+    task_id = str(uuid.uuid4())
+    task_results[task_id] = {"status": "in_queue"}
+
+    background_tasks.add_task(
+        old_process_document_download,
+        document_id,
+        user_id,
+        is_public,
+        count,
+        lang,
+        difficulty,
+        task_id
+    )
+
+    return {"task_id": task_id, "status": "processing"}
+  except Exception as e:
+    return {
+        "status": "error",
+        "message": str(e)
+    }
+
+
+# NEW ENDPOINT
 @router.post("/generate/document")
 async def generate_from_document(
     document_id: str,
@@ -212,7 +293,8 @@ async def process_text(text: str, user_id: str, is_public: bool, count: int, lan
     task_results[task_id] = {"status": "error", "message": str(e)}
 
 
-async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang, difficulty, task_id):
+# OLD FUNCTION - Using manual extraction
+async def old_process_file(temp_file_path, user_id, is_public, file_ext, count, lang, difficulty, task_id):
   try:
     async with task_semaphore:
       task_results[task_id] = {"status": "processing",
@@ -220,9 +302,56 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang
       print("Processing file: ", temp_file_path)
       json_obj = {}
       if file_ext == '.pdf':
+        json_obj = await pdf_processor.old_generate_questions(temp_file_path, count, lang, task_id, difficulty)
+      elif file_ext == '.docx' or file_ext == '.doc':
+        json_obj = await doc_processor.old_generate_questions_from_text(temp_file_path, count, lang, task_id, difficulty)
+      elif file_ext == '.md' or file_ext == '.txt':
+        json_obj = await txt_file_processor.generate_questions(temp_file_path, count, lang, task_id, difficulty)
+      elif file_ext in ['.png', '.jpg', '.jpeg']:
+        json_obj = await image_generator.generate_questions(temp_file_path, count, lang, task_id, difficulty)
+      else:
+        raise ValueError(f"Unsupported file type: {file_ext}")
+
+      print("Done generating questions")
+
+      if len(json_obj) > 0:
+        categories = await get_all_categories()
+
+        selected_categories, title = await select_categories_and_title(json_obj["questions"], categories)
+
+        json_obj["categories"] = selected_categories
+        json_obj["title"] = title
+        json_obj["difficulty"] = difficulty
+
+        await add_quiz(json_obj, user_id, is_public)
+        task_results[task_id] = {"status": "completed", "result": json_obj}
+      else:
+        task_results[task_id] = {"status": "error",
+                                 "message": "No questions generated"}
+  except Exception as e:
+    import traceback
+    traceback.print_exc()
+    task_results[task_id] = {"status": "error", "message": str(e)}
+  finally:
+    if os.path.exists(temp_file_path):
+      os.remove(temp_file_path)
+
+
+# NEW FUNCTION - Using Gemini file upload API
+async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang, difficulty, task_id):
+  try:
+    async with task_semaphore:
+      task_results[task_id] = {"status": "processing",
+                               "progress": "Starting file processing"}
+      print("Processing file: ", temp_file_path)
+      json_obj = {}
+      
+      # Use new Gemini file upload for PDF/DOCX
+      if file_ext == '.pdf':
         json_obj = await pdf_processor.generate_questions(temp_file_path, count, lang, task_id, difficulty)
       elif file_ext == '.docx' or file_ext == '.doc':
-        json_obj = await doc_processor.generate_questions_from_text(temp_file_path, count, lang, task_id, difficulty)
+        json_obj = await doc_processor.generate_questions(temp_file_path, count, lang, task_id, difficulty)
+      # Text and image files use existing methods
       elif file_ext == '.md' or file_ext == '.txt':
         json_obj = await txt_file_processor.generate_questions(temp_file_path, count, lang, task_id, difficulty)
       elif file_ext in ['.png', '.jpg', '.jpeg']:

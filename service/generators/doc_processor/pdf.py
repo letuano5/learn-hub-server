@@ -1,10 +1,13 @@
-from service.generators.generators import DocumentProcessor, TextProcessor, ImageProcessor, FileProcessor
-from service.generators.base import FileUploader
-import fitz
-from PIL import Image
+import os
+import asyncio
 import base64
 import io
-import asyncio
+
+import fitz
+from PIL import Image
+
+from service.generators.generators import DocumentProcessor, TextProcessor, ImageProcessor, FileProcessor
+from service.generators.base import FileUploader
 from controllers.shared_resources import task_results
 
 
@@ -53,7 +56,8 @@ class PDFProcessor(DocumentProcessor):
         text += page.get_text()
     return text
 
-  async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
+  # OLD METHODS - Using manual text/image extraction
+  async def old_generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     with fitz.open(pdf_path) as doc:
       total_pages = len(doc)
       if total_pages > 300:
@@ -67,16 +71,73 @@ class PDFProcessor(DocumentProcessor):
     genai_link = await self.file_uploader.upload_pdf(pdf_path)
     return await self.file_processor.generate_questions(genai_link, num_question, language, difficulty)
 
-  async def generate_questions_from_images(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
+  async def old_generate_questions_from_images(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     base64_pages = await asyncio.to_thread(self.pdf_to_base64, pdf_path, task_id)
     if task_id:
       task_results[task_id] = {"status": "processing",
                                "progress": "Generating questions from images"}
     return await self.image_processor.generate_questions(base64_pages, num_question, language, difficulty)
 
-  async def generate_questions_from_text(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
+  async def old_generate_questions_from_text(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     text = await asyncio.to_thread(self.pdf_to_text, pdf_path, task_id)
     if task_id:
       task_results[task_id] = {"status": "processing",
                                "progress": "Generating questions from text"}
     return await self.text_processor.generate_questions(text, num_question, language, difficulty)
+
+  # NEW METHODS - Using Gemini file upload API
+  async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium", api_key: str = None):
+    """Generate questions using Gemini file upload API"""
+    from service.generators.gemini_file_upload import validate_pdf_page_count, upload_file_to_gemini, generate_questions_from_file
+    
+    # Validate page count
+    is_valid, page_count = validate_pdf_page_count(pdf_path, max_pages=300)
+    if not is_valid:
+      if task_id:
+        task_results[task_id] = {
+            "status": "failed",
+            "progress": f"PDF with {page_count} pages exceeds 300 page limit"
+        }
+      raise ValueError(f"PDF with {page_count} pages exceeds 300 page limit")
+    
+    if task_id:
+      task_results[task_id] = {
+          "status": "processing",
+          "progress": f"Uploading PDF ({page_count} pages) to Gemini..."
+      }
+    
+    # Upload file to Gemini
+    if not api_key:
+      api_key = os.environ.get('GOOGLE_GENAI_KEY')
+    
+    uploaded_file = await upload_file_to_gemini(pdf_path)
+    
+    if task_id:
+      task_results[task_id] = {
+          "status": "processing",
+          "progress": "Generating questions from uploaded file..."
+      }
+    
+    # Generate questions
+    return await generate_questions_from_file(
+        uploaded_file,
+        num_question,
+        language,
+        difficulty,
+        api_key
+    )
+
+  async def extract_pages_to_markdown(self, pdf_path: str, start_page: int, end_page: int, api_key: str = None) -> str:
+    """Extract specific pages as markdown for Q&A processing"""
+    from service.generators.gemini_file_upload import extract_file_pages_to_markdown
+    
+    if not api_key:
+      api_key = os.environ.get('GOOGLE_GENAI_KEY')
+    
+    return await extract_file_pages_to_markdown(
+        pdf_path,
+        'pdf',
+        start_page,
+        end_page,
+        api_key
+    )
