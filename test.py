@@ -22,7 +22,7 @@ class GeminiAPITester:
         if not self.api_key:
             raise ValueError("GOOGLE_GENAI_KEY not found in environment variables")
         
-        print(f"✓ API Key loaded: {self.api_key[:10]}...")
+        print(f"✓ API Key loaded!")
         
         # Initialize components
         self.genai_client = GenAIClient(api_key=self.api_key)

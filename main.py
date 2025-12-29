@@ -9,8 +9,57 @@ from controllers import health_controller, generator_controller, processor_contr
 from controllers.quizzes_controller import router as quizzes_router
 from controllers.document_controller import router as upload_router
 from controllers.results_controller import router as results_router
+import os
 
 app = FastAPI()
+
+# Startup event to run tests
+@app.on_event("startup")
+async def startup_event():
+    """Run tests on server startup"""
+    run_tests = os.environ.get('RUN_STARTUP_TESTS', 'true').lower() == 'true'
+    test_mode = os.environ.get('STARTUP_TEST_MODE', 'quick').lower()  # 'quick' or 'full'
+    
+    if run_tests:
+        try:
+            if test_mode == 'full':
+                # Run full test suite (slow ~30-60s)
+                print("\n🧪 Running FULL test suite (this may take a while)...\n")
+                from test import GeminiAPITester
+                tester = GeminiAPITester()
+                await tester.run_all_tests()
+            else:
+                # Run quick tests only (fast ~5-10s)
+                print("\n🧪 Running QUICK startup tests...\n")
+                from test import GeminiAPITester
+                tester = GeminiAPITester()
+                
+                # Run only essential tests
+                print("="*60)
+                print("QUICK STARTUP TESTS")
+                print("="*60 + "\n")
+                
+                results = []
+                results.append(await tester.test_model_info())
+                results.append(await tester.test_simple_text_generation())
+                
+                # Summary
+                print("="*60)
+                passed = sum(results)
+                total = len(results)
+                if passed == total:
+                    print(f"✅ Quick tests passed ({passed}/{total})")
+                else:
+                    print(f"⚠️  Some tests failed ({passed}/{total})")
+                print("="*60 + "\n")
+                
+        except Exception as e:
+            print(f"⚠️  Startup tests failed: {str(e)}")
+            print("Server will continue to start, but some features may not work correctly.\n")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("ℹ️  Startup tests disabled (set RUN_STARTUP_TESTS=true to enable)\n")
 
 app.add_middleware(
     CORSMiddleware,
