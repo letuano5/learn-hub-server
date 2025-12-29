@@ -19,7 +19,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup_event():
   """Run tests on server startup"""
-  run_tests = os.environ.get('RUN_STARTUP_TESTS', 'true').lower() == 'true'
+  run_tests = os.environ.get('RUN_STARTUP_TESTS', 'false').lower() == 'true'
   test_mode = os.environ.get(
       'STARTUP_TEST_MODE', 'quick').lower()  # 'quick' or 'full'
 

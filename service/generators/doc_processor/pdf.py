@@ -12,11 +12,12 @@ from controllers.shared_resources import task_results
 
 
 class PDFProcessor(DocumentProcessor):
-  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor, file_processor: FileProcessor, file_uploader: FileUploader):
+  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor, file_processor: FileProcessor, file_uploader: FileUploader, gemini_upload_client):
     self.text_processor = text_processor
     self.image_processor = image_processor
     self.file_processor = file_processor
     self.file_uploader = file_uploader
+    self.gemini_upload_client = gemini_upload_client
 
   # https://python.langchain.com/docs/how_to/document_loader_pdf/#use-of-multimodal-models
   def pdf_to_base64(self, pdf_path: str, task_id: str = None):
@@ -86,12 +87,10 @@ class PDFProcessor(DocumentProcessor):
     return await self.text_processor.generate_questions(text, num_question, language, difficulty)
 
   # NEW METHODS - Using Gemini file upload API
-  async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium", api_key: str = None):
+  async def generate_questions(self, pdf_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     """Generate questions using Gemini file upload API"""
-    from service.generators.gemini_file_upload import validate_pdf_page_count, upload_file_to_gemini, generate_questions_from_file
-    
     # Validate page count
-    is_valid, page_count = validate_pdf_page_count(pdf_path, max_pages=300)
+    is_valid, page_count = self.gemini_upload_client.validate_pdf_page_count(pdf_path, max_pages=300)
     if not is_valid:
       if task_id:
         task_results[task_id] = {
@@ -107,10 +106,7 @@ class PDFProcessor(DocumentProcessor):
       }
     
     # Upload file to Gemini
-    if not api_key:
-      api_key = os.environ.get('GOOGLE_GENAI_KEY')
-    
-    uploaded_file = await upload_file_to_gemini(pdf_path)
+    uploaded_file = await self.gemini_upload_client.upload_file(pdf_path)
     
     if task_id:
       task_results[task_id] = {
@@ -119,25 +115,13 @@ class PDFProcessor(DocumentProcessor):
       }
     
     # Generate questions
-    return await generate_questions_from_file(
+    return await self.gemini_upload_client.generate_questions_from_file(
         uploaded_file,
         num_question,
         language,
-        difficulty,
-        api_key
+        difficulty
     )
 
-  async def extract_pages_to_markdown(self, pdf_path: str, start_page: int, end_page: int, api_key: str = None) -> str:
+  async def extract_pages_to_markdown(self, pdf_path: str, start_page: int, end_page: int) -> str:
     """Extract specific pages as markdown for Q&A processing"""
-    from service.generators.gemini_file_upload import extract_file_pages_to_markdown
-    
-    if not api_key:
-      api_key = os.environ.get('GOOGLE_GENAI_KEY')
-    
-    return await extract_file_pages_to_markdown(
-        pdf_path,
-        'pdf',
-        start_page,
-        end_page,
-        api_key
-    )
+    return await self.gemini_upload_client.extract_pdf_pages_to_markdown(pdf_path, start_page, end_page)

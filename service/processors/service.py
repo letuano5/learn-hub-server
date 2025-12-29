@@ -13,12 +13,7 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.readers.file import PDFReader, DocxReader, MarkdownReader
 from service.generators.base import GenAIClient
 from service.generators.doc_processor.pdf import PDFProcessor
-from service.generators.gemini_file_upload import (
-    validate_pdf_page_count,
-    validate_docx_page_count,
-    extract_file_pages_to_markdown,
-    extract_file_to_markdown_full
-)
+from service.generators.service import gemini_upload_client
 from pinecone import Pinecone
 import asyncio
 import google.generativeai as genai
@@ -193,7 +188,7 @@ async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
   This improves accuracy for Q&A by having Gemini properly extract and format content
   """
   # Validate page count
-  is_valid, total_pages = validate_pdf_page_count(file_path, max_pages=300)
+  is_valid, total_pages = gemini_upload_client.validate_pdf_page_count(file_path, max_pages=300)
   if not is_valid:
     raise ValueError(f"PDF with {total_pages} pages exceeds 300 page limit for Q&A processing")
   
@@ -205,13 +200,7 @@ async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
     end_page = min(start_page + batch_size - 1, total_pages)
     print(f"Extracting pages {start_page}-{end_page} as markdown...")
     
-    markdown = await extract_file_pages_to_markdown(
-        file_path,
-        'pdf',
-        start_page,
-        end_page,
-        GOOGLE_GENAI_KEY
-    )
+    markdown = await gemini_upload_client.extract_pdf_pages_to_markdown(file_path, start_page, end_page)
     
     markdown_texts.append({
         'text': markdown,
@@ -254,18 +243,14 @@ async def process_docx(file_path: str) -> list[Document]:
   This improves accuracy for Q&A and avoids multiple uploads
   """
   # Validate page count
-  is_valid, estimated_pages = validate_docx_page_count(file_path, max_pages=300)
+  is_valid, estimated_pages = gemini_upload_client.validate_docx_page_count(file_path, max_pages=300)
   if not is_valid:
     raise ValueError(f"DOCX with estimated {estimated_pages} pages exceeds 300 page limit for Q&A processing")
   
   print(f"Extracting entire DOCX file as markdown (estimated {estimated_pages} pages)...")
   
   # Extract entire file as markdown (upload once)
-  markdown = await extract_file_to_markdown_full(
-      file_path,
-      'docx',
-      GOOGLE_GENAI_KEY
-  )
+  markdown = await gemini_upload_client.extract_file_to_markdown_full(file_path)
   
   # Create single document from markdown
   doc = Document(

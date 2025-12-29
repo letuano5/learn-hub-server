@@ -6,6 +6,11 @@ from controllers.shared_resources import task_results
 
 
 class DOCXProcessor(DocumentProcessor):
+  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor, file_processor: FileProcessor, gemini_upload_client):
+    self.text_processor = text_processor
+    self.image_processor = image_processor
+    self.file_processor = file_processor
+    self.gemini_upload_client = gemini_upload_client
 
   # def docx_to_base64_images(self, docx_path):
   #   # Extract all content including images
@@ -59,12 +64,10 @@ class DOCXProcessor(DocumentProcessor):
       raise e
 
   # NEW METHODS - Using Gemini file upload API
-  async def generate_questions(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium", api_key: str = None):
+  async def generate_questions(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
     """Generate questions using Gemini file upload API"""
-    from service.generators.gemini_file_upload import validate_docx_page_count, upload_file_to_gemini, generate_questions_from_file
-    
     # Validate page count
-    is_valid, page_count = validate_docx_page_count(file_path, max_pages=300)
+    is_valid, page_count = self.gemini_upload_client.validate_docx_page_count(file_path, max_pages=300)
     if not is_valid:
       if task_id:
         task_results[task_id] = {
@@ -80,10 +83,7 @@ class DOCXProcessor(DocumentProcessor):
       }
     
     # Upload file to Gemini
-    if not api_key:
-      api_key = os.environ.get('GOOGLE_GENAI_KEY')
-    
-    uploaded_file = await upload_file_to_gemini(file_path)
+    uploaded_file = await self.gemini_upload_client.upload_file(file_path)
     
     if task_id:
       task_results[task_id] = {
@@ -92,25 +92,13 @@ class DOCXProcessor(DocumentProcessor):
       }
     
     # Generate questions
-    return await generate_questions_from_file(
+    return await self.gemini_upload_client.generate_questions_from_file(
         uploaded_file,
         num_question,
         language,
-        difficulty,
-        api_key
+        difficulty
     )
 
-  async def extract_pages_to_markdown(self, file_path: str, start_page: int, end_page: int, api_key: str = None) -> str:
+  async def extract_pages_to_markdown(self, file_path: str, start_page: int, end_page: int) -> str:
     """Extract specific pages as markdown for Q&A processing"""
-    from service.generators.gemini_file_upload import extract_file_pages_to_markdown
-    
-    if not api_key:
-      api_key = os.environ.get('GOOGLE_GENAI_KEY')
-    
-    return await extract_file_pages_to_markdown(
-        file_path,
-        'docx',
-        start_page,
-        end_page,
-        api_key
-    )
+    return await self.gemini_upload_client.extract_file_to_markdown_full(file_path)
