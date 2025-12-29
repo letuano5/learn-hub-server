@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Form, UploadFile, BackgroundTasks
 from controllers.shared_resources import task_semaphore, task_results
 from typing import Annotated
-from service.processors.service import query_document, process_pdf, process_docx, process_text_file, add_document, old_process_pdf, old_process_docx
+from service.processors.service import add_document, process_pdf, process_docx, process_text_file, query_document, old_process_pdf, old_process_docx
 from service.generators.base import upload_file
 from models.documents import add_document as save_document_info
 from models.documents import add_doc_with_link
+from models.quota import check_storage_quota, increment_storage
 
 import os
 import tempfile
@@ -117,6 +118,20 @@ async def get_query_result(query_text: str, user_id: str, task_id):
 # OLD FUNCTION - Using direct text extraction
 async def old_process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
   try:
+    # Check storage quota before processing
+    file_size = os.path.getsize(temp_file_path)
+    can_upload, quota_info, max_storage = await check_storage_quota(user_id, file_size)
+    if not can_upload:
+      used_mb = quota_info['total_storage'] / (1024 * 1024)
+      max_mb = max_storage / (1024 * 1024)
+      task_results[task_id] = {
+          "status": "failed",
+          "message": f"Storage limit reached. You have used {used_mb:.2f}MB/{max_mb:.0f}MB."
+      }
+      if os.path.exists(temp_file_path):
+        os.remove(temp_file_path)
+      return
+    
     async with task_semaphore:
 
       print(f'Adding document {temp_file_path} of {user_id}')
@@ -141,6 +156,7 @@ async def old_process_file(temp_file_path, user_id, is_public, file_ext, task_id
         raise ValueError(f"Unsupported file type: {file_ext}")
 
       await add_document(documents, user_id, is_public, document_id, filename)
+      await increment_storage(user_id, file_size)  # Increment quota after successful upload
 
       task_results[task_id] = {
           "status": "completed",
@@ -158,6 +174,20 @@ async def old_process_file(temp_file_path, user_id, is_public, file_ext, task_id
 # NEW FUNCTION - Using Gemini batch markdown extraction for PDF/DOCX
 async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mode="text", filename=None):
   try:
+    # Check storage quota before processing
+    file_size = os.path.getsize(temp_file_path)
+    can_upload, quota_info, max_storage = await check_storage_quota(user_id, file_size)
+    if not can_upload:
+      used_mb = quota_info['total_storage'] / (1024 * 1024)
+      max_mb = max_storage / (1024 * 1024)
+      task_results[task_id] = {
+          "status": "failed",
+          "message": f"Storage limit reached. You have used {used_mb:.2f}MB/{max_mb:.0f}MB."
+      }
+      if os.path.exists(temp_file_path):
+        os.remove(temp_file_path)
+      return
+    
     async with task_semaphore:
 
       print(f'Adding document {temp_file_path} of {user_id}')
@@ -184,6 +214,7 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, task_id, mo
         raise ValueError(f"Unsupported file type: {file_ext}")
 
       await add_document(documents, user_id, is_public, document_id, filename)
+      await increment_storage(user_id, file_size)  # Increment quota after successful upload
 
       task_results[task_id] = {
           "status": "completed",

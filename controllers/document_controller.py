@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File
 from models.documents import add_doc_with_link, get_document, search_documents, count_documents, delete_document, update_document
+from models.quota import decrement_storage
 from service.processors.service import delete_chunks, process_pdf, process_docx, process_text_file, add_document
 import os
 import uuid
@@ -135,6 +136,18 @@ async def get_document_route(document_id: str):
 @router.delete("/document/{document_id}")
 async def delete_document_route(document_id: str):
   try:
+    # Get document info before deleting
+    document = await get_document(document_id)
+    if not document:
+      return {
+          "status": "error",
+          "message": "Document not found"
+      }
+    
+    user_id = document['user_id']
+    file_size = document['file_size']
+    
+    # Delete chunks and document
     await delete_chunks(document_id)
     success = await delete_document(document_id)
 
@@ -143,6 +156,9 @@ async def delete_document_route(document_id: str):
           "status": "error",
           "message": "Document not found"
       }
+    
+    # Decrement storage quota after successful deletion
+    await decrement_storage(user_id, file_size)
 
     return {
         "status": "success",

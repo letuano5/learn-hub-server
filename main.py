@@ -7,6 +7,7 @@ load_dotenv()
 from controllers.results_controller import router as results_router
 from controllers.document_controller import router as upload_router
 from controllers.quizzes_controller import router as quizzes_router
+from controllers.constants_controller import router as constants_router
 from controllers import health_controller, generator_controller, processor_controller, shared_resources
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
@@ -63,6 +64,13 @@ async def startup_event():
       traceback.print_exc()
   else:
     print("ℹ️  Startup tests disabled (set RUN_STARTUP_TESTS=true to enable)\n")
+  
+  # Initialize default constants
+  try:
+    from models.constants import init_default_constants
+    await init_default_constants()
+  except Exception as e:
+    print(f"⚠️  Failed to initialize constants: {str(e)}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,6 +87,7 @@ app.include_router(quizzes_router, prefix="/quiz", tags=["quiz"])
 app.include_router(shared_resources.router)
 app.include_router(upload_router)
 app.include_router(results_router, prefix="/results", tags=["results"])
+app.include_router(constants_router, prefix="/constants", tags=["constants"])
 
 
 @app.get("/")

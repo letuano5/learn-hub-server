@@ -1,5 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from models.quizzes import update_quiz, delete_quiz, search_quizzes, count_quizzes, get_quiz
+from models.quota import get_quota, decrement_quiz_count
 from bson import ObjectId
 from typing import Dict, Optional, List
 from datetime import datetime, time
@@ -74,9 +75,21 @@ async def update_quiz_direct(quiz_id: str, quiz_data: Dict):
 async def delete_quiz_direct(quiz_id: str):
   try:
     ObjectId(quiz_id)
+    # Get quiz to find user_id before deleting
+    quiz = await get_quiz(quiz_id)
+    if not quiz:
+      return {"status": "error", "success": False, "message": "Quiz not found"}
+    
+    user_id = quiz['user_id']
+    
+    # Delete quiz
     result = await delete_quiz(quiz_id)
     if result.deleted_count == 0:
       return {"status": "error", "success": False, "message": "Quiz not found"}
+    
+    # Decrement quota after successful deletion
+    await decrement_quiz_count(user_id)
+    
     return {"status": "success", "success": True, "message": "Quiz deleted successfully"}
   except Exception as e:
     return {"status": "error", "success": False, "message": str(e)}
@@ -150,5 +163,26 @@ async def count_quizzes_direct(query: SearchQuery):
     return {
         "status": "error",
         "count": 0,
+        "message": str(e)
+    }
+
+
+@router.get("/quota/{user_id}")
+async def get_user_quota(user_id: str):
+  """Get quota information for a user"""
+  try:
+    quota = await get_quota(user_id)
+    return {
+        "status": "success",
+        "data": {
+            "user_id": quota['user_id'],
+            "total_quizzes": quota['total_quizzes'],
+            "total_storage": quota['total_storage']
+        },
+        "message": "Quota fetched successfully"
+    }
+  except Exception as e:
+    return {
+        "status": "error",
         "message": str(e)
     }

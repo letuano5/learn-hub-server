@@ -3,6 +3,7 @@ from fastapi import BackgroundTasks
 from service.generators.service import pdf_processor, txt_file_processor, doc_processor, image_generator, link_generator, category_client
 from models.quizzes import add_quiz
 from models.categories import get_all_categories
+from models.quota import check_quiz_quota, increment_quiz_count
 from controllers.shared_resources import task_semaphore, task_results
 from pydantic import BaseModel
 import os
@@ -239,6 +240,15 @@ async def select_categories_and_title(questions: list, categories: list) -> tupl
 
 async def process_link(link: str, user_id: str, is_public: bool, count: int, lang: str, difficulty: str, task_id: str):
   try:
+    # Check quota before processing
+    can_create, quota_info, max_quizzes = await check_quiz_quota(user_id)
+    if not can_create:
+      task_results[task_id] = {
+          "status": "failed",
+          "message": f"Quiz limit reached. You have created {quota_info['total_quizzes']}/{max_quizzes} quizzes."
+      }
+      return
+    
     async with task_semaphore:
       task_results[task_id] = {"status": "processing",
                                "progress": "Processing web link"}
@@ -255,6 +265,7 @@ async def process_link(link: str, user_id: str, is_public: bool, count: int, lan
         json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
+        await increment_quiz_count(user_id)  # Increment quota after successful creation
         task_results[task_id] = {"status": "completed", "result": json_obj}
       else:
         task_results[task_id] = {"status": "error",
@@ -267,6 +278,15 @@ async def process_link(link: str, user_id: str, is_public: bool, count: int, lan
 
 async def process_text(text: str, user_id: str, is_public: bool, count: int, lang: str, difficulty: str, task_id: str):
   try:
+    # Check quota before processing
+    can_create, quota_info, max_quizzes = await check_quiz_quota(user_id)
+    if not can_create:
+      task_results[task_id] = {
+          "status": "failed",
+          "message": f"Quiz limit reached. You have created {quota_info['total_quizzes']}/{max_quizzes} quizzes."
+      }
+      return
+    
     async with task_semaphore:
       task_results[task_id] = {"status": "processing",
                                "progress": "Generating questions from text"}
@@ -283,6 +303,7 @@ async def process_text(text: str, user_id: str, is_public: bool, count: int, lan
         json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
+        await increment_quiz_count(user_id)  # Increment quota after successful creation
         task_results[task_id] = {"status": "completed", "result": json_obj}
       else:
         task_results[task_id] = {"status": "error",
@@ -296,6 +317,17 @@ async def process_text(text: str, user_id: str, is_public: bool, count: int, lan
 # OLD FUNCTION - Using manual extraction
 async def old_process_file(temp_file_path, user_id, is_public, file_ext, count, lang, difficulty, task_id):
   try:
+    # Check quota before processing
+    can_create, quota_info, max_quizzes = await check_quiz_quota(user_id)
+    if not can_create:
+      task_results[task_id] = {
+          "status": "failed",
+          "message": f"Quiz limit reached. You have created {quota_info['total_quizzes']}/{max_quizzes} quizzes."
+      }
+      if os.path.exists(temp_file_path):
+        os.remove(temp_file_path)
+      return
+    
     async with task_semaphore:
       task_results[task_id] = {"status": "processing",
                                "progress": "Starting file processing"}
@@ -324,6 +356,7 @@ async def old_process_file(temp_file_path, user_id, is_public, file_ext, count, 
         json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
+        await increment_quiz_count(user_id)  # Increment quota after successful creation
         task_results[task_id] = {"status": "completed", "result": json_obj}
       else:
         task_results[task_id] = {"status": "error",
@@ -340,6 +373,17 @@ async def old_process_file(temp_file_path, user_id, is_public, file_ext, count, 
 # NEW FUNCTION - Using Gemini file upload API
 async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang, difficulty, task_id):
   try:
+    # Check quota before processing
+    can_create, quota_info, max_quizzes = await check_quiz_quota(user_id)
+    if not can_create:
+      task_results[task_id] = {
+          "status": "failed",
+          "message": f"Quiz limit reached. You have created {quota_info['total_quizzes']}/{max_quizzes} quizzes."
+      }
+      if os.path.exists(temp_file_path):
+        os.remove(temp_file_path)
+      return
+    
     async with task_semaphore:
       task_results[task_id] = {"status": "processing",
                                "progress": "Starting file processing"}
@@ -371,6 +415,7 @@ async def process_file(temp_file_path, user_id, is_public, file_ext, count, lang
         json_obj["difficulty"] = difficulty
 
         await add_quiz(json_obj, user_id, is_public)
+        await increment_quiz_count(user_id)  # Increment quota after successful creation
         task_results[task_id] = {"status": "completed", "result": json_obj}
       else:
         task_results[task_id] = {"status": "error",
