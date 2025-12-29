@@ -10,13 +10,13 @@ class ConstantUpdateRequest(BaseModel):
   value: int
 
 
-@router.get("/constants")
+@router.get("/")
 async def get_constants():
   """Get all system constants"""
   return await get_all_constants()
 
 
-@router.post("/constants")
+@router.post("/")
 async def update_constant(request: ConstantUpdateRequest):
   """Update a system constant"""
   await set_constant(request.key, request.value)
