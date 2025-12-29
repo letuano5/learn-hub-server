@@ -239,31 +239,25 @@ async def process_pdf(file_path: str, mode: str = "text") -> list[Document]:
 
 async def process_docx(file_path: str) -> list[Document]:
   """
-  Process DOCX by uploading entire file to Gemini once and extracting as markdown
-  This improves accuracy for Q&A and avoids multiple uploads
+  Process DOCX using old text extraction method
+  Gemini API doesn't support DOCX file upload, so we extract text first
   """
-  # Validate page count
-  is_valid, estimated_pages = gemini_upload_client.validate_docx_page_count(file_path, max_pages=300)
-  if not is_valid:
-    raise ValueError(f"DOCX with estimated {estimated_pages} pages exceeds 300 page limit for Q&A processing")
+  reader = DocxReader()
+  documents = reader.load_data(file_path)
   
-  print(f"Extracting entire DOCX file as markdown (estimated {estimated_pages} pages)...")
+  # # Validate total word count
+  # total_words = 0
+  # for doc in documents:
+  #   total_words += len(doc.text.split())
   
-  # Extract entire file as markdown (upload once)
-  markdown = await gemini_upload_client.extract_file_to_markdown_full(file_path)
+  # max_words = 77400  # ~300 pages equivalent
+  # if total_words > max_words:
+  #   raise ValueError(f"DOCX with {total_words} words exceeds {max_words} word limit (~300 pages)")
   
-  # Create single document from markdown
-  doc = Document(
-      text=markdown,
-      metadata={
-          'estimated_pages': estimated_pages,
-          'content_type': 'markdown_extracted_full'
-      }
-  )
-  
-  # Chunk the document
-  nodes = node_parser.get_nodes_from_documents([doc])
-  
+  print(f"Processing DOCX with {total_words} words...")
+
+  nodes = node_parser.get_nodes_from_documents(documents)
+
   chunked_documents = []
   for node in nodes:
     doc = Document(
@@ -271,7 +265,7 @@ async def process_docx(file_path: str) -> list[Document]:
         metadata=node.metadata
     )
     chunked_documents.append(doc)
-  
+
   return chunked_documents
 
 

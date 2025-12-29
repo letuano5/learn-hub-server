@@ -6,11 +6,10 @@ from controllers.shared_resources import task_results
 
 
 class DOCXProcessor(DocumentProcessor):
-  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor, file_processor: FileProcessor, gemini_upload_client):
+  def __init__(self, text_processor: TextProcessor, image_processor: ImageProcessor, file_processor: FileProcessor):
     self.text_processor = text_processor
     self.image_processor = image_processor
     self.file_processor = file_processor
-    self.gemini_upload_client = gemini_upload_client
 
   # def docx_to_base64_images(self, docx_path):
   #   # Extract all content including images
@@ -63,42 +62,46 @@ class DOCXProcessor(DocumentProcessor):
         }
       raise e
 
-  # NEW METHODS - Using Gemini file upload API
+  # NEW METHOD - DOCX doesn't support file upload, so we extract text first
   async def generate_questions(self, file_path: str, num_question: int, language: str, task_id: str = None, difficulty: str = "medium"):
-    """Generate questions using Gemini file upload API"""
-    # Validate page count
-    is_valid, page_count = self.gemini_upload_client.validate_docx_page_count(file_path, max_pages=300)
-    if not is_valid:
+    """Generate questions from DOCX by extracting text first (Gemini doesn't support DOCX upload)"""
+    try:
       if task_id:
         task_results[task_id] = {
-            "status": "failed",
-            "progress": f"DOCX with estimated {page_count} pages exceeds 300 page limit"
+            "status": "processing",
+            "progress": "Reading DOCX file"
         }
-      raise ValueError(f"DOCX with estimated {page_count} pages exceeds 300 page limit")
-    
-    if task_id:
-      task_results[task_id] = {
-          "status": "processing",
-          "progress": f"Uploading DOCX (~{page_count} pages) to Gemini..."
-      }
-    
-    # Upload file to Gemini
-    uploaded_file = await self.gemini_upload_client.upload_file(file_path)
-    
-    if task_id:
-      task_results[task_id] = {
-          "status": "processing",
-          "progress": "Generating questions from uploaded file..."
-      }
-    
-    # Generate questions
-    return await self.gemini_upload_client.generate_questions_from_file(
-        uploaded_file,
-        num_question,
-        language,
-        difficulty
-    )
+
+      text = self.docx_to_text(file_path)
+      
+      # Validate word count (max ~77,400 words = 300 pages equivalent)
+      word_count = len(text.split())
+      max_words = 77400
+      if word_count > max_words:
+        if task_id:
+          task_results[task_id] = {
+              "status": "failed",
+              "progress": f"DOCX with {word_count} words exceeds {max_words} word limit (~300 pages)"
+          }
+        raise ValueError(f"DOCX with {word_count} words exceeds {max_words} word limit (~300 pages)")
+
+      if task_id:
+        task_results[task_id] = {
+            "status": "processing",
+            "progress": f"Generating questions from text ({word_count} words)..."
+        }
+
+      return await self.text_processor.generate_questions(text, num_question, language, difficulty)
+
+    except Exception as e:
+      if task_id:
+        task_results[task_id] = {
+            "status": "error",
+            "message": str(e)
+        }
+      raise e
 
   async def extract_pages_to_markdown(self, file_path: str, start_page: int, end_page: int) -> str:
-    """Extract specific pages as markdown for Q&A processing"""
-    return await self.gemini_upload_client.extract_file_to_markdown_full(file_path)
+    """Extract DOCX content as text (no page concept in DOCX, returns full text)"""
+    # DOCX doesn't have clear page boundaries, just return all text
+    return self.docx_to_text(file_path)

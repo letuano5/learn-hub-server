@@ -23,7 +23,7 @@ pdf_processor = PDFProcessor(
     text_processor, image_processor, file_processor, file_uploader, gemini_upload_client)
 txt_file_processor = TextFileProcessor(
     text_processor, image_processor, file_processor)
-doc_processor = DOCXProcessor(text_processor, image_processor, file_processor, gemini_upload_client)
+doc_processor = DOCXProcessor(text_processor, image_processor, file_processor)
 image_generator = ImageGenerator(image_processor)
 link_generator = LinkGenerator(text_processor)
 category_client = GenAIClient(api_key=api_key)
